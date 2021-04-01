@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:developer';
-
 import 'package:nyxx/nyxx.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
@@ -18,20 +15,22 @@ void main(List<String> argv) {
     }
   });
 
-  checkYoutube(bot, yt);
+  checkYoutube(bot, yt, []);
 }
 
-void checkYoutube(Nyxx bot, YoutubeExplode yt) async {
-  final videos =
+void checkYoutube(Nyxx bot, YoutubeExplode yt, List<String> sent) async {
+  final streams =
       yt.channels.getUploads('UCZs3FO5nPvK9VveqJLIvv_w').where((v) => v.isLive);
-  final channel =
-      await bot.fetchChannel<TextChannel>(Snowflake('826983242493591592'));
-  await channel.sendMessage(files: [
-    AttachmentBuilder.bytes(
-        utf8.encode(jsonEncode(await videos.map((v) => v.toString()).toList())),
-        'kek.json')
-  ]);
-  Future.delayed(Duration(minutes: 10), () => checkYoutube(bot, yt));
+  if (!(await streams.isEmpty)) {
+    final stream = (await streams.first).id.value;
+    if (!sent.contains(stream)) {
+      final channel =
+          await bot.fetchChannel<TextChannel>(Snowflake('826983242493591592'));
+      await channel.sendMessage(content: '@everyone https://youtu.be/$stream');
+      sent.add(stream);
+    }
+  }
+  Future.delayed(Duration(minutes: 10), () => checkYoutube(bot, yt, sent));
 }
 
 String str(IMessageAuthor author) =>
