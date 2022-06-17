@@ -9,6 +9,8 @@ environment:
 dependencies:
   lints: ^2.0.0
   nyxx: ^3.4.2
+  stash: ^4.2.0
+  stash_file: ^4.2.0
   youtube_explode_dart: ^1.11.0
 
 dev_dependencies:
