@@ -8,7 +8,8 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 void log(Object? msg) => print('[${DateTime.now()}] $msg');
 
-final news = Snowflake('826983242493591592');
+final internal = Snowflake('826983242493591592');
+final news = Snowflake('551908144641605642');
 late final Cache<Map> cache;
 final yt = YoutubeExplode();
 
@@ -78,14 +79,16 @@ void checkYoutube(INyxxWebsocket bot, DateTime start, List<String> sent) async {
       .getUploads('UCZs3FO5nPvK9VveqJLIvv_w')
       .asyncMap((v) => getVideo(v.id.value))
       .where(
+          // unfortunately only works if jana is started at the end of a day
+          // TODO: add everything to sent at the beginning and dont use start
           (v) => DateTime.tryParse(v['publishDate'])?.isAfter(start) ?? false)
       .map((v) => v['id'])
       .where((v) => !sent.contains(v))
-      .forEach((stream) async {
+      .forEach((vid) async {
     final channel = await bot.fetchChannel<ITextChannel>(news);
-    await channel.sendMessage(
-        MessageBuilder.content('@everyone https://youtu.be/$stream'));
-    sent.add(stream);
+    await channel
+        .sendMessage(MessageBuilder.content('@everyone https://youtu.be/$vid'));
+    sent.add(vid);
   });
   log('Done searching.');
   Future.delayed(Duration(minutes: 5), () => checkYoutube(bot, start, sent));
