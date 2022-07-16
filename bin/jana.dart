@@ -1,9 +1,10 @@
 import 'dart:convert';
 
+import 'package:logging/logging.dart';
 import 'package:nyxx/nyxx.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
-void log(Object? msg) => print('[${DateTime.now()}] $msg');
+final log = Logger('jana');
 
 final internal = Snowflake('826983242493591592');
 final news = Snowflake('551908144641605642');
@@ -42,14 +43,19 @@ void main(List<String> argv) async {
 }
 
 void checkYoutube(INyxxWebsocket bot, List<String> sent) async {
-  log('Searching for new videos/streams...');
-  await getVideoIds().where((v) => !sent.contains(v)).forEach((vid) async {
-    final channel = await bot.fetchChannel<ITextChannel>(news);
-    await channel
-        .sendMessage(MessageBuilder.content('@everyone https://youtu.be/$vid'));
-    sent.add(vid);
-  });
-  log('Done searching.');
+  log.info('Searching for new videos/streams...');
+  final vids = await getVideoIds()
+      .where((v) => !sent.contains(v))
+      .map((v) => 'https://youtub.be/$v')
+      .toList();
+  if (vids.isNotEmpty) {
+    final msg = '@everyone${vids.reduce((p, e) => '$p $e')}';
+    await bot
+        .fetchChannel<ITextChannel>(news)
+        .then((chan) => chan.sendMessage(MessageBuilder.content(msg)));
+    sent.addAll(vids);
+  }
+  log.info('Done searching.');
   Future.delayed(Duration(minutes: 5), () => checkYoutube(bot, sent));
 }
 

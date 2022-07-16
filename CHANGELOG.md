@@ -1,3 +1,9 @@
+## 1.0.4
+
+- Instead of posting each one separately, videos published at the same time are
+  now in one message
+- Logging integrates properly with `nyxx`
+
 ## 1.0.3
 
 - New video narrowing algorithm with many advantages
