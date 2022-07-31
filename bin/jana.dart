@@ -10,8 +10,7 @@ final internal = Snowflake('826983242493591592');
 final news = Snowflake('551908144641605642');
 final yt = YoutubeExplode();
 
-Stream<String> getVideoIds() =>
-    yt.channels.getUploads('UCZs3FO5nPvK9VveqJLIvv_w').map((v) => v.id.value);
+Stream<Video> getVideos() => yt.channels.getUploads('UCZs3FO5nPvK9VveqJLIvv_w');
 
 void main(List<String> argv) async {
   final bot = NyxxFactory.createNyxxWebsocket(
@@ -39,21 +38,32 @@ void main(List<String> argv) async {
 
   await bot.connect();
 
-  checkYoutube(bot, await getVideoIds().toList());
+  checkYoutube(bot, await getVideos().map((v) => v.id.value).toList());
 }
 
 void checkYoutube(INyxxWebsocket bot, List<String> sent) async {
   log.info('Searching for new videos/streams...');
-  final vids = await getVideoIds()
-      .where((v) => !sent.contains(v))
-      .map((v) => 'https://youtub.be/$v')
-      .toList();
+  final vids =
+      await getVideos().where((v) => !sent.contains(v.id.value)).toList();
   if (vids.isNotEmpty) {
-    final msg = '@everyone${vids.reduce((p, e) => '$p $e')}';
-    await bot
+    final cbt = vids.map((v) => v.title.toLowerCase()).fold<bool>(
+        true,
+        (p, v) =>
+            p &&
+            v.contains('cbt') &&
+            v.contains('vs') &&
+            !v.contains('analyse'));
+    final ids = vids.map((v) => v.id.value).toList();
+    final msg = await bot
         .fetchChannel<ITextChannel>(news)
-        .then((chan) => chan.sendMessage(MessageBuilder.content(msg)));
-    sent.addAll(vids);
+        .then((chan) => chan.sendMessage(MessageBuilder.content('@everyone'
+            '${cbt ? '\nIhr könnt durch Reaktionen mit ⬅️ und ➡️ und Likes/Dislikes auf die Videos für das Uservoting abstimmen.\n' : ''}'
+            '${ids.reduce((p, e) => '$p $e')}')));
+    if (cbt) {
+      await msg.createReaction(UnicodeEmoji('⬅️'));
+      await msg.createReaction(UnicodeEmoji('➡️'));
+    }
+    sent.addAll(ids);
   }
   log.info('Done searching.');
   Future.delayed(Duration(minutes: 5), () => checkYoutube(bot, sent));

@@ -1,3 +1,8 @@
+## 1.1.0
+
+- CBT-specific handling to add some voting information
+- `nyxx` 4.0.0
+
 ## 1.0.4
 
 - Instead of posting each one separately, videos published at the same time are
