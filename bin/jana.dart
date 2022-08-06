@@ -22,9 +22,13 @@ void main(List<String> argv) async {
     final msg = event.message;
     final channel = await msg.channel.getOrDownload();
     print('Msg from ${msg.author.str()}: ${msg.content} (${msg.url})');
-    if (event.message.content == '!ping') {
+    await bot.fetchChannel(internal).then((c) => c as ITextChannel).then((c) =>
+        c.sendMessage(MessageBuilder.files([
+          AttachmentBuilder.bytes(utf8.encode(msg.toString()), 'fux.txt')
+        ])));
+    if (msg.content == '!ping') {
       await channel.sendMessage(MessageBuilder.content('Pong!'));
-    } else if (event.message.content == '!test') {
+    } else if (msg.content == '!test') {
       await yt.channels
           .getUploads('UCZs3FO5nPvK9VveqJLIvv_w')
           .map((v) => '${v.title},${v.url}')
@@ -46,23 +50,21 @@ void checkYoutube(INyxxWebsocket bot, List<String> sent) async {
   final vids =
       await getVideos().where((v) => !sent.contains(v.id.value)).toList();
   if (vids.isNotEmpty) {
-    final cbt = vids.map((v) => v.title.toLowerCase()).fold<bool>(
-        true,
-        (p, v) =>
-            p &&
-            v.contains('cbt') &&
-            v.contains('vs') &&
-            !v.contains('analyse'));
+    final cbt = vids.length == 2 &&
+        vids.map((v) => v.title.toLowerCase()).fold<bool>(
+            true, (p, v) => p && v.contains('cbt') && v.contains('vs'));
+    final message = cbt
+        ? '\nIhr könnt durch Reaktionen mit ⬅️ und ➡️ und Likes/Dislikes auf die Videos für das Uservoting abstimmen.\n'
+        : '';
+    final reactions = cbt ? ['⬅️', '➡️'] : <String>[];
     final ids = vids.map((v) => v.id.value).toList();
-    final msg = await bot
-        .fetchChannel<ITextChannel>(news)
-        .then((chan) => chan.sendMessage(MessageBuilder.content('@everyone'
-            '${cbt ? '\nIhr könnt durch Reaktionen mit ⬅️ und ➡️ und Likes/Dislikes auf die Videos für das Uservoting abstimmen.\n' : ''}'
-            '${ids.reduce((p, e) => '$p $e')}')));
-    if (cbt) {
-      await msg.createReaction(UnicodeEmoji('⬅️'));
-      await msg.createReaction(UnicodeEmoji('➡️'));
-    }
+    final links =
+        ids.map((x) => 'https://youtu.be/$x').reduce((p, e) => '$p $e');
+    final msg = await bot.fetchChannel<ITextChannel>(news).then((chan) =>
+        chan.sendMessage(MessageBuilder.content('@everyone$message$links')));
+    await Future.wait(
+        // can't we just get the dart people to make using normal constructors as functions possible
+        reactions.map((x) => UnicodeEmoji(x)).map(msg.createReaction));
     sent.addAll(ids);
   }
   log.info('Done searching.');

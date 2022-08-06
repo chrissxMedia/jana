@@ -1,3 +1,7 @@
+## 1.1.1
+
+- Fixed bug that caused video IDs instead of video links to be posted
+
 ## 1.1.0
 
 - CBT-specific handling to add some voting information
