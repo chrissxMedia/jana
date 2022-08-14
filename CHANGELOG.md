@@ -1,3 +1,7 @@
+## 1.2.0
+
+- Added support for custom messages and reactions in the video descriptions
+
 ## 1.1.1
 
 - Fixed bug that caused video IDs instead of video links to be posted
