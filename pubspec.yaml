@@ -1,6 +1,6 @@
 name: jana
 description: A Discord bot
-version: 1.2.0
+version: 1.2.1
 homepage: https://github.com/chrissxMedia/jana
 
 environment:
@@ -11,6 +11,7 @@ executables:
 
 dependencies:
   logging: ^1.0.2
+  mutex: ^3.0.0
   nyxx: ^4.0.0
   youtube_explode_dart: ^1.12.0
 

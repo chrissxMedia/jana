@@ -1,3 +1,7 @@
+## 1.2.1
+
+- Add logging to the internal channel, in addition to stdout
+
 ## 1.2.0
 
 - Added support for custom messages and reactions in the video descriptions

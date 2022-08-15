@@ -1,13 +1,14 @@
 import 'dart:convert';
 
 import 'package:logging/logging.dart';
+import 'package:mutex/mutex.dart';
 import 'package:nyxx/nyxx.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 final log = Logger('jana');
 
-final internal = Snowflake('826983242493591592');
-final news = Snowflake('551908144641605642');
+final internalId = Snowflake('826983242493591592');
+final newsId = Snowflake('551908144641605642');
 final yt = YoutubeExplode();
 
 Stream<Video> getVideos() => yt.channels.getUploads('UCZs3FO5nPvK9VveqJLIvv_w');
@@ -17,15 +18,32 @@ void main(List<String> argv) async {
       argv.first, GatewayIntents.allUnprivileged)
     ..registerPlugin(Logging())
     ..registerPlugin(CliIntegration());
+  await bot.connect();
+
+  final internal = await bot.fetchChannel(internalId) as ITextChannel;
+
+  var logMutex = Mutex();
+  IMessage? lastLog;
+  var lastLogMsg = '';
+  var lastLogCount = 1;
+  Logger.root.onRecord.listen((rec) => logMutex.protect(() async {
+        if (bot.ready) {
+          final msg = '[${rec.level.name}] [${rec.loggerName}] ${rec.message}';
+          if (lastLogMsg == msg) {
+            lastLog?.edit(MessageBuilder.content('$msg x${++lastLogCount}'));
+          } else {
+            lastLog = await internal.sendMessage(MessageBuilder.content(msg));
+            lastLogCount = 1;
+            lastLogMsg = msg;
+          }
+        }
+      }));
 
   bot.eventsWs.onMessageReceived.listen((event) async {
     final msg = event.message;
     final channel = await msg.channel.getOrDownload();
-    print('Msg from ${msg.author.str()}: ${msg.content} (${msg.url})');
-    await bot.fetchChannel(internal).then((c) => c as ITextChannel).then((c) =>
-        c.sendMessage(MessageBuilder.files([
-          AttachmentBuilder.bytes(utf8.encode(msg.toString()), 'fux.txt')
-        ])));
+    if (msg.author.bot) return;
+    log.info('Msg from ${msg.author.str()}: ${msg.content} (${msg.url})');
     if (msg.content == '!ping') {
       await channel.sendMessage(MessageBuilder.content('Pong!'));
     } else if (msg.content == '!test') {
@@ -40,8 +58,6 @@ void main(List<String> argv) async {
     }
   });
 
-  await bot.connect();
-
   checkYoutube(bot, await getVideos().map((v) => v.id.value).toList());
 }
 
@@ -50,6 +66,7 @@ void checkYoutube(INyxxWebsocket bot, List<String> sent) async {
   final vids =
       await getVideos().where((v) => !sent.contains(v.id.value)).toList();
   if (vids.isNotEmpty) {
+    // TODO: log what happens here
     final cbt = vids.length == 2 &&
         vids.map((v) => v.title.toLowerCase()).fold<bool>(
             true, (p, v) => p && v.contains('cbt') && v.contains('vs'));
@@ -75,14 +92,13 @@ void checkYoutube(INyxxWebsocket bot, List<String> sent) async {
     final ids = vids.map((v) => v.id.value).toList();
     final links =
         ids.map((x) => 'https://youtu.be/$x').reduce((p, e) => '$p $e');
-    final msg = await bot.fetchChannel<ITextChannel>(news).then((chan) => chan
+    final msg = await bot.fetchChannel<ITextChannel>(newsId).then((chan) => chan
         .sendMessage(MessageBuilder.content('@everyone\n$message\n$links')));
     await Future.wait(
         // can't we just get the dart people to make using normal constructors as functions possible
         reactions.map((x) => UnicodeEmoji(x)).map(msg.createReaction));
     sent.addAll(ids);
   }
-  log.info('Done searching.');
   Future.delayed(Duration(minutes: 5), () => checkYoutube(bot, sent));
 }
 
