@@ -1,3 +1,7 @@
+## 1.2.2
+
+- Fixed a crash when videos don't specify messages or reactions
+
 ## 1.2.1
 
 - Add logging to the internal channel, in addition to stdout
