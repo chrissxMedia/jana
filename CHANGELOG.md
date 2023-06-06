@@ -1,3 +1,8 @@
+## 1.3.0
+
+- `nyxx` 5, `dart` 3
+- Removed CBT-specific code
+
 ## 1.2.2
 
 - Fixed a crash when videos don't specify messages or reactions

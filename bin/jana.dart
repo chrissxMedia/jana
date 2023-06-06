@@ -67,36 +67,27 @@ void checkYoutube(INyxxWebsocket bot, List<String> sent) async {
       await getVideos().where((v) => !sent.contains(v.id.value)).toList();
   if (vids.isNotEmpty) {
     // TODO: log what happens here
-    final cbt = vids.length == 2 &&
-        vids.map((v) => v.title.toLowerCase()).fold<bool>(
-            true, (p, v) => p && v.contains('cbt') && v.contains('vs'));
-    final message = cbt
-        ? '\nIhr könnt durch Reaktionen mit ⬅️ und ➡️ und Likes/Dislikes auf die Videos für das Uservoting abstimmen.'
-        : vids
-            .map((v) => v.description
-                .replaceAll('\r', '')
-                .split('\n')
-                .where((s) => s.startsWith('janamsg: '))
-                .map((s) => s.replaceFirst('janamsg: ', '')))
-            .fold<Iterable<String>>([], (a, b) => [...a, ...b])
-            .fold<String>('', (a, b) => '$a\n$b');
-    final reactions = cbt
-        ? ['⬅️', '➡️']
-        : vids
-            .map((v) => v.description
-                .replaceAll('\r', '')
-                .split('\n')
-                .where((s) => s.startsWith('janareact: '))
-                .map((s) => s.replaceFirst('janareact: ', '')))
-            .fold<Iterable<String>>([], (a, b) => [...a, ...b]);
+    final message = vids
+        .map((v) => v.description
+            .replaceAll('\r', '')
+            .split('\n')
+            .where((s) => s.startsWith('janamsg: '))
+            .map((s) => s.replaceFirst('janamsg: ', '')))
+        .fold<Iterable<String>>([], (a, b) => [...a, ...b])
+        .fold<String>('', (a, b) => '$a\n$b');
+    final reactions = vids
+        .map((v) => v.description
+            .replaceAll('\r', '')
+            .split('\n')
+            .where((s) => s.startsWith('janareact: '))
+            .map((s) => s.replaceFirst('janareact: ', '')))
+        .fold<Iterable<String>>([], (a, b) => [...a, ...b]);
     final ids = vids.map((v) => v.id.value).toList();
     final links =
         ids.map((x) => 'https://youtu.be/$x').reduce((p, e) => '$p $e');
-    final msg = await bot.fetchChannel<ITextChannel>(newsId).then((chan) => chan
-        .sendMessage(MessageBuilder.content('@everyone$message\n$links')));
-    await Future.wait(
-        // can't we just get the dart people to make using normal constructors as functions possible
-        reactions.map((x) => UnicodeEmoji(x)).map(msg.createReaction));
+    final msg = await bot.fetchChannel<ITextChannel>(newsId).then((chan) =>
+        chan.sendMessage(MessageBuilder.content('@everyone$message\n$links')));
+    await Future.wait(reactions.map(UnicodeEmoji.new).map(msg.createReaction));
     sent.addAll(ids);
   }
   Future.delayed(Duration(minutes: 5), () => checkYoutube(bot, sent));
