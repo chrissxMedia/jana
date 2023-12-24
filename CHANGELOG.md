@@ -1,3 +1,19 @@
+## 1.4.0
+
+- `nyxx` 6
+- Added `messageContent` intent
+- Logging: send `error` and `stackTrace` if given
+- Logging: ping the admin if the log level is >= warning
+- Added/Adjusted `!vids` and `!vid` commands
+- The first `checkYoutube` invocation is now also delayed
+(to not cause any DOS issues, as unlikely as they already were)
+- Catch errors in `checkYoutube` and the command processing and log them
+(and tell the user in case of the commands)
+- Fixed YouTube descriptions being empty (the channel page doesn't have them)
+- `checkYoutube` now makes sure videos weren't published before IED'23
+(which is a stopgap measure for stopping it from telling people about old videos
+in certain edge cases, that have happened btw)
+
 ## 1.3.0
 
 - `nyxx` 5, `dart` 3
