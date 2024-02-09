@@ -1,3 +1,10 @@
+## 1.5.0
+
+- Added support for `JANA_DISCORD_TOKEN` environment variable instead of using args
+- A lot of logging for the YT video posting
+- YT videos are now processed synchronously
+- The used channels are now just kept as globals
+
 ## 1.4.0
 
 - `nyxx` 6

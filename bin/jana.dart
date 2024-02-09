@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:mutex/mutex.dart';
 import 'package:nyxx/nyxx.dart';
@@ -8,7 +9,9 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 final log = Logger('jana');
 
 final internalId = Snowflake(826983242493591592);
+late final TextChannel internal;
 final newsId = Snowflake(551908144641605642);
+late final TextChannel news;
 final yt = YoutubeExplode();
 
 Stream<Video> getVideos() => yt.channels.getUploads('UCZs3FO5nPvK9VveqJLIvv_w');
@@ -40,11 +43,13 @@ extension SendJson on TextChannel {
 }
 
 void main(List<String> argv) async {
-  final bot = await Nyxx.connectGateway(argv.first,
+  final bot = await Nyxx.connectGateway(
+      Platform.environment['JANA_DISCORD_TOKEN'] ?? argv.first,
       GatewayIntents.allUnprivileged | GatewayIntents.messageContent,
       options: GatewayClientOptions(plugins: [Logging(), CliIntegration()]));
 
-  final internal = await bot.channels.get(internalId) as TextChannel;
+  internal = await bot.channels.get(internalId) as TextChannel;
+  news = await bot.channels.get(newsId) as TextChannel;
 
   final logMutex = Mutex();
   Message? lastLog;
@@ -98,57 +103,55 @@ void main(List<String> argv) async {
 }
 
 void checkYoutube(NyxxGateway bot, List<String> sent) async {
-  log.info('Searching for new videos/streams...');
+  log.info('[yt] Searching for new videos/streams...');
   try {
-    final vids = getVideos()
+    final vids = await getVideos()
         .map((v) => v.id)
         .where((v) => !sent.contains(v.value))
-        .asyncMap(yt.videos.get);
-    // TODO: log what happens here
+        .asyncMap(yt.videos.get)
+        .toList();
     // TODO: consider putting the message before the video it belongs to
     final messages = <String>[];
     final reactions = <String>[];
     final links = <String>[];
     final ids = <String>[];
-    await for (final vid in vids) {
+    for (final vid in vids) {
+      log.info('[yt] processing video', vid.url);
+      internal.sendJson(json.encode(videoToJson(vid)), 'vid.json');
       ids.add(vid.id.value);
+
       if ((vid.publishDate ?? vid.uploadDate ?? DateTime.now())
-      // TODO: proper replacement for this
+          // TODO: proper replacement for this
           .isBefore(DateTime(2023, 12, 13))) {
-        log.warning('an old video came through: ${vid.url}');
-        bot.channels.get(internalId).then((c) => c as TextChannel).then((chan) {
-          chan.sendJson(json.encode(videoToJson(vid)), 'oldvid.json');
-        });
+        log.warning('[yt] is an old video');
         continue;
       }
-      messages.addAll(vid.description
+
+      Iterable<String> lines(String separator) => vid.description
           .replaceAll('\r', '')
           .split('\n')
-          .where((s) => s.startsWith('janamsg: '))
-          .map((s) => s.replaceFirst('janamsg: ', '')));
-      reactions.addAll(vid.description
-          .replaceAll('\r', '')
-          .split('\n')
-          .where((s) => s.startsWith('janareact: '))
-          .map((s) => s.replaceFirst('janareact: ', '')));
+          .where((s) => s.startsWith(separator))
+          .map((s) => s.replaceFirst(separator, ''));
+      messages.addAll(lines('janamsg: '));
+      reactions.addAll(lines('janareact: '));
       links.add('https://youtu.be/${vid.id.value}');
+      log.info('[yt] added');
     }
     if (links.isNotEmpty) {
+      log.info('[yt] building and sending message');
       final message = messages.reduce((a, b) => '$a\n$b');
       final link = links.reduce((p, e) => '$p $e');
-      final msg = await bot.channels
-          .get(newsId)
-          .then((c) => c as TextChannel)
-          .then((chan) => chan.sendMessage(
-              MessageBuilder(content: '@everyone $message\n$link')));
+      final msg = await news
+          .sendMessage(MessageBuilder(content: '@everyone $message\n$link'));
       await Future.wait(reactions
           .map(bot.getTextEmoji)
           .map(ReactionBuilder.fromEmoji)
           .map(msg.react));
+      log.info('[yt] all done');
     }
     sent.addAll(ids);
   } catch (e, st) {
-    log.severe('yt update error', e, st);
+    log.severe('[yt] update error', e, st);
   }
   Future.delayed(Duration(minutes: 5), () => checkYoutube(bot, sent));
 }
