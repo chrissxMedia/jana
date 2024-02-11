@@ -1,3 +1,8 @@
+## 1.5.1
+
+- Ping the admin (pixel) by id, not name
+- Don't fail if there is no custom message from any of the videos
+
 ## 1.5.0
 
 - Added support for `JANA_DISCORD_TOKEN` environment variable instead of using args

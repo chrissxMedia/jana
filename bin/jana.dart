@@ -56,7 +56,7 @@ void main(List<String> argv) async {
   var lastLogMsg = '';
   var lastLogCount = 1;
   Logger.root.onRecord.listen((rec) => logMutex.protect(() async {
-        final ping = rec.level >= Level.WARNING ? ' @pixelcmtd' : '';
+        final ping = rec.level >= Level.WARNING ? ' <@231670489779666944>' : '';
         var msg = '[${rec.level.name}] [${rec.loggerName}] ${rec.message}$ping';
         if (rec.error != null) msg += '\nError: ${rec.error}';
         if (rec.stackTrace != null) {
@@ -139,7 +139,8 @@ void checkYoutube(NyxxGateway bot, List<String> sent) async {
     }
     if (links.isNotEmpty) {
       log.info('[yt] building and sending message');
-      final message = messages.reduce((a, b) => '$a\n$b');
+      final message =
+          messages.isEmpty ? '' : messages.reduce((a, b) => '$a\n$b');
       final link = links.reduce((p, e) => '$p $e');
       final msg = await news
           .sendMessage(MessageBuilder(content: '@everyone $message\n$link'));
