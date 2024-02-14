@@ -43,9 +43,14 @@ extension SendJson on TextChannel {
 }
 
 void main(List<String> argv) async {
+  final token = Platform.environment['JANA_DISCORD_TOKEN'] ?? argv.firstOrNull;
+  if (token == null || token.isEmpty) {
+    stderr.writeln('No token provided (env JANA_DISCORD_TOKEN or pass as arg)');
+    exit(1);
+  }
+
   final bot = await Nyxx.connectGateway(
-      Platform.environment['JANA_DISCORD_TOKEN'] ?? argv.first,
-      GatewayIntents.allUnprivileged | GatewayIntents.messageContent,
+      token, GatewayIntents.allUnprivileged | GatewayIntents.messageContent,
       options: GatewayClientOptions(plugins: [Logging(), CliIntegration()]));
 
   internal = await bot.channels.get(internalId) as TextChannel;

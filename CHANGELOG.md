@@ -1,3 +1,7 @@
+## 1.5.2
+
+- Print an error and `exit(1)` instead of crashing when no token is provided
+
 ## 1.5.1
 
 - Ping the admin (pixel) by id, not name
