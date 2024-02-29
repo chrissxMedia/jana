@@ -1,3 +1,8 @@
+## 1.5.3
+
+- Use the time of startup minus one day for the publish time check
+- Fix check for webhooks (they're now called `WebhookAuthor`)
+
 ## 1.5.2
 
 - Print an error and `exit(1)` instead of crashing when no token is provided
@@ -28,7 +33,7 @@
 - Fixed YouTube descriptions being empty (the channel page doesn't have them)
 - `checkYoutube` now makes sure videos weren't published before IED'23
 (which is a stopgap measure for stopping it from telling people about old videos
-in certain edge cases, that have happened btw)
+in certain edge cases, [that have happened btw](https://discord.com/channels/551138620665495554/551908144641605642/1167108161531027526))
 
 ## 1.3.0
 

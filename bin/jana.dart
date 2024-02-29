@@ -13,6 +13,7 @@ late final TextChannel internal;
 final newsId = Snowflake(551908144641605642);
 late final TextChannel news;
 final yt = YoutubeExplode();
+final startupTime = DateTime.now().subtract(Duration(days: 1));
 
 Stream<Video> getVideos() => yt.channels.getUploads('UCZs3FO5nPvK9VveqJLIvv_w');
 Map videoToJson(Video v) => {
@@ -80,7 +81,7 @@ void main(List<String> argv) async {
   bot.onMessageCreate.listen((event) async {
     final msg = event.message;
     final channel = await msg.channel.get() as TextChannel;
-    if (msg.author is Webhook || (msg.author as User).isBot) return;
+    if (msg.author is WebhookAuthor || (msg.author as User).isBot) return;
     log.info(
         'Msg from ${msg.author.username}: ${msg.content} (${await msg.url})');
     if (msg.content == '!ping') {
@@ -126,8 +127,7 @@ void checkYoutube(NyxxGateway bot, List<String> sent) async {
       ids.add(vid.id.value);
 
       if ((vid.publishDate ?? vid.uploadDate ?? DateTime.now())
-          // TODO: proper replacement for this
-          .isBefore(DateTime(2023, 12, 13))) {
+          .isBefore(startupTime)) {
         log.warning('[yt] is an old video');
         continue;
       }
