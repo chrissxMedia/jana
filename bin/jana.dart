@@ -5,6 +5,7 @@ import 'package:mutex/mutex.dart';
 import 'package:nyxx/nyxx.dart';
 import 'package:nyxx_extensions/nyxx_extensions.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
+import 'package:youtube_poll/youtube_poll.dart';
 
 final log = Logger('jana');
 
@@ -12,10 +13,9 @@ final internalId = Snowflake(826983242493591592);
 late final TextChannel internal;
 final newsId = Snowflake(551908144641605642);
 late final TextChannel news;
-final yt = YoutubeExplode();
+final yt = YoutubePoll();
 final startupTime = DateTime.now().subtract(Duration(days: 1));
 
-Stream<Video> getVideos() => yt.channels.getUploads('UCZs3FO5nPvK9VveqJLIvv_w');
 Map videoToJson(Video v) => {
       'author': v.author,
       'channelId': v.channelId.value,
@@ -86,15 +86,11 @@ void main(List<String> argv) async {
         'Msg from ${msg.author.username}: ${msg.content} (${await msg.url})');
     if (msg.content == '!ping') {
       await channel.sendMessage(MessageBuilder(content: 'Pong!'));
-    } else if (msg.content == '!vids') {
-      await channel.sendJson(
-          json.encode(await getVideos().map(videoToJson).toList()),
-          'vids.json');
     } else if (msg.content.startsWith('!vid')) {
       final ids = msg.content.split(' ')..removeAt(0);
       for (final id in ids) {
         try {
-          await yt.videos.get(id).then(
+          await yt.yt.videos.get(id).then(
               (v) => channel.sendJson(json.encode(videoToJson(v)), '$id.json'));
         } catch (e, st) {
           log.warning('!vid error', e, st);
@@ -104,18 +100,14 @@ void main(List<String> argv) async {
     }
   });
 
-  final sent = await getVideos().map((v) => v.id.value).toList();
-  Future.delayed(Duration(minutes: 5), () => checkYoutube(bot, sent));
+  const cmtd = 'UCZs3FO5nPvK9VveqJLIvv_w';
+  await yt.ignoreOld(cmtd);
+  yt.pollBatched(cmtd).listen((vids) => handleNewVideos(bot, vids));
 }
 
-void checkYoutube(NyxxGateway bot, List<String> sent) async {
-  log.info('[yt] Searching for new videos/streams...');
+Future<void> handleNewVideos(NyxxGateway bot, List<Video> vids) async {
+  log.info('[yt] new videos: $vids');
   try {
-    final vids = await getVideos()
-        .map((v) => v.id)
-        .where((v) => !sent.contains(v.value))
-        .asyncMap(yt.videos.get)
-        .toList();
     // TODO: consider putting the message before the video it belongs to
     final messages = <String>[];
     final reactions = <String>[];
@@ -155,9 +147,7 @@ void checkYoutube(NyxxGateway bot, List<String> sent) async {
           .map(msg.react));
       log.info('[yt] all done');
     }
-    sent.addAll(ids);
   } catch (e, st) {
     log.severe('[yt] update error', e, st);
   }
-  Future.delayed(Duration(minutes: 5), () => checkYoutube(bot, sent));
 }

@@ -1,3 +1,9 @@
+## 1.6.0
+
+- Use `youtube_poll`
+- Remove `!vids` (it requires custom youtube logic and wasn't used)
+- `lints` 4
+
 ## 1.5.3
 
 - Use the time of startup minus one day for the publish time check
