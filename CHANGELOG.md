@@ -2,6 +2,7 @@
 
 - Use `youtube_poll`
 - Remove `!vids` (it requires custom youtube logic and wasn't used)
+- Poll for videos on the side channels
 - `lints` 4
 
 ## 1.5.3

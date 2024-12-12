@@ -15,6 +15,12 @@ final newsId = Snowflake(551908144641605642);
 late final TextChannel news;
 final yt = YoutubePoll();
 final startupTime = DateTime.now().subtract(Duration(days: 1));
+const ytChannels = <(String, bool)>[
+  ("UCZs3FO5nPvK9VveqJLIvv_w", true), // main
+  ("UCF7z3rssaZjx7SxJ0IqSNvw", false), // xxlp
+  ("UC20oDKphj67NRDwKKy3JC_A", false), // pixeleng
+  ("UCMawD8L365TRdcqhQiTDLKA", false), // twinkspotting (→ other dc channel)
+];
 
 Map videoToJson(Video v) => {
       'author': v.author,
@@ -100,12 +106,14 @@ void main(List<String> argv) async {
     }
   });
 
-  const cmtd = 'UCZs3FO5nPvK9VveqJLIvv_w';
-  await yt.ignoreOld(cmtd);
-  yt.pollBatched(cmtd).listen((vids) => handleNewVideos(bot, vids));
+  for (final (id, notify) in ytChannels) {
+    await yt.ignoreOld(id);
+    yt.pollBatched(id).listen((vids) => handleNewVideos(bot, notify, vids));
+  }
 }
 
-Future<void> handleNewVideos(NyxxGateway bot, List<Video> vids) async {
+Future<void> handleNewVideos(
+    NyxxGateway bot, bool notify, List<Video> vids) async {
   log.info('[yt] new videos: $vids');
   try {
     // TODO: consider putting the message before the video it belongs to
@@ -139,8 +147,9 @@ Future<void> handleNewVideos(NyxxGateway bot, List<Video> vids) async {
       final message =
           messages.isEmpty ? '' : messages.reduce((a, b) => '$a\n$b');
       final link = links.reduce((p, e) => '$p $e');
+      final tag = notify ? '@everyone ' : '';
       final msg = await news
-          .sendMessage(MessageBuilder(content: '@everyone $message\n$link'));
+          .sendMessage(MessageBuilder(content: '$tag$message\n$link'));
       await Future.wait(reactions
           .map(bot.getTextEmoji)
           .map(ReactionBuilder.fromEmoji)
