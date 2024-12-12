@@ -9,10 +9,8 @@ import 'package:youtube_poll/youtube_poll.dart';
 
 final log = Logger('jana');
 
-final internalId = Snowflake(826983242493591592);
-late final TextChannel internal;
-final newsId = Snowflake(551908144641605642);
-late final TextChannel news;
+final internal = Snowflake(826983242493591592);
+final news = Snowflake(551908144641605642);
 final yt = YoutubePoll();
 final startupTime = DateTime.now().subtract(Duration(days: 1));
 const ytChannels = <(String, bool)>[
@@ -60,9 +58,6 @@ void main(List<String> argv) async {
       token, GatewayIntents.allUnprivileged | GatewayIntents.messageContent,
       options: GatewayClientOptions(plugins: [Logging(), CliIntegration()]));
 
-  internal = await bot.channels.get(internalId) as TextChannel;
-  news = await bot.channels.get(newsId) as TextChannel;
-
   final logMutex = Mutex();
   Message? lastLog;
   var lastLogMsg = '';
@@ -78,7 +73,8 @@ void main(List<String> argv) async {
           lastLog
               ?.edit(MessageUpdateBuilder(content: '$msg x${++lastLogCount}'));
         } else {
-          lastLog = await internal.sendMessage(MessageBuilder(content: msg));
+          lastLog = await (await bot.channels.get(internal) as TextChannel)
+              .sendMessage(MessageBuilder(content: msg));
           lastLogCount = 1;
           lastLogMsg = msg;
         }
@@ -123,7 +119,8 @@ Future<void> handleNewVideos(
     final ids = <String>[];
     for (final vid in vids) {
       log.info('[yt] processing video', vid.url);
-      internal.sendJson(json.encode(videoToJson(vid)), 'vid.json');
+      (await bot.channels.get(internal) as TextChannel)
+          .sendJson(json.encode(videoToJson(vid)), 'vid.json');
       ids.add(vid.id.value);
 
       if ((vid.publishDate ?? vid.uploadDate ?? DateTime.now())
@@ -148,7 +145,7 @@ Future<void> handleNewVideos(
           messages.isEmpty ? '' : messages.reduce((a, b) => '$a\n$b');
       final link = links.reduce((p, e) => '$p $e');
       final tag = notify ? '@everyone ' : '';
-      final msg = await news
+      final msg = await (await bot.channels.get(news) as TextChannel)
           .sendMessage(MessageBuilder(content: '$tag$message\n$link'));
       await Future.wait(reactions
           .map(bot.getTextEmoji)
