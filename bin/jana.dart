@@ -9,15 +9,16 @@ import 'package:youtube_poll/youtube_poll.dart';
 
 final log = Logger('jana');
 
-final internal = Snowflake(826983242493591592);
-final news = Snowflake(551908144641605642);
+const internal = Snowflake(826983242493591592);
+const news = Snowflake(551908144641605642);
+const twinkspotting = Snowflake(1292515671439315027);
 final yt = YoutubePoll();
 final startupTime = DateTime.now().subtract(Duration(days: 1));
-const ytChannels = <(String, bool)>[
-  ("UCZs3FO5nPvK9VveqJLIvv_w", true), // main
-  ("UCF7z3rssaZjx7SxJ0IqSNvw", false), // xxlp
-  ("UC20oDKphj67NRDwKKy3JC_A", false), // pixeleng
-  ("UCMawD8L365TRdcqhQiTDLKA", false), // twinkspotting (→ other dc channel)
+const ytChannels = <(String, bool, Snowflake)>[
+  ("UCZs3FO5nPvK9VveqJLIvv_w", true, news), // main
+  ("UCF7z3rssaZjx7SxJ0IqSNvw", false, news), // xxlp
+  ("UC20oDKphj67NRDwKKy3JC_A", false, news), // pixeleng
+  ("UCMawD8L365TRdcqhQiTDLKA", false, twinkspotting), // twinkspotting
 ];
 
 Map videoToJson(Video v) => {
@@ -102,14 +103,14 @@ void main(List<String> argv) async {
     }
   });
 
-  for (final (id, notify) in ytChannels) {
+  for (final (id, not, dChan) in ytChannels) {
     await yt.ignoreOld(id);
-    yt.pollBatched(id).listen((vids) => handleNewVideos(bot, notify, vids));
+    yt.pollBatched(id).listen((vids) => handleNewVideos(bot, not, dChan, vids));
   }
 }
 
 Future<void> handleNewVideos(
-    NyxxGateway bot, bool notify, List<Video> vids) async {
+    NyxxGateway bot, bool notify, Snowflake dcChannel, List<Video> vids) async {
   log.info('[yt] new videos: $vids');
   try {
     // TODO: consider putting the message before the video it belongs to
@@ -145,7 +146,7 @@ Future<void> handleNewVideos(
           messages.isEmpty ? '' : messages.reduce((a, b) => '$a\n$b');
       final link = links.reduce((p, e) => '$p $e');
       final tag = notify ? '@everyone ' : '';
-      final msg = await (await bot.channels.get(news) as TextChannel)
+      final msg = await (await bot.channels.get(dcChannel) as TextChannel)
           .sendMessage(MessageBuilder(content: '$tag$message\n$link'));
       await Future.wait(reactions
           .map(bot.getTextEmoji)

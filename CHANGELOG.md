@@ -1,4 +1,4 @@
-## 1.6.0
+## 2.0.0
 
 - Use `youtube_poll`
 - Remove `!vids` (it requires custom youtube logic and wasn't used)
