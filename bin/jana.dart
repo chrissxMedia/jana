@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:mutex/mutex.dart';
 import 'package:nyxx/nyxx.dart';
 import 'package:nyxx_extensions/nyxx_extensions.dart';
+import 'package:nyxx_lavalink/nyxx_lavalink.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:youtube_poll/youtube_poll.dart';
 
@@ -57,9 +58,18 @@ void main(List<String> argv) async {
     exit(1);
   }
 
+  final lavalink = Platform.environment.containsKey('JANA_LAVALINK_BASE') &&
+          Platform.environment.containsKey('JANA_LAVALINK_PASSWORD')
+      ? LavalinkPlugin(
+          base: Uri.parse(Platform.environment['JANA_LAVALINK_BASE']!),
+          password: Platform.environment['JANA_LAVALINK_PASSWORD']!,
+        )
+      : null;
+
   final bot = await Nyxx.connectGateway(
       token, GatewayIntents.allUnprivileged | GatewayIntents.messageContent,
-      options: GatewayClientOptions(plugins: [Logging(), CliIntegration()]));
+      options: GatewayClientOptions(
+          plugins: [logging, cliIntegration, if (lavalink != null) lavalink]));
 
   final logMutex = Mutex();
   Message? lastLog;
@@ -107,17 +117,22 @@ void main(List<String> argv) async {
               (v) => channel.sendJson(json.encode(videoToJson(v)), '$id.json'));
         }
       },
-      '!join': () async {
-        if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
-        //final file = await msg.attachments
-        //    .firstWhere((a) => a.url.path.endsWith('.mp3'))
-        //    .fetch();
-        final voice =
-            await bot.voice.fetchVoiceState(event.guildId!, member.id);
-        final myState = GatewayVoiceStateBuilder(
-            channelId: voice.channelId, isMuted: false, isDeafened: false);
-        bot.updateVoiceState(event.guildId!, myState);
-      },
+      if (lavalink != null)
+        '!play': () async {
+          if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
+          //final file = await msg.attachments
+          //    .firstWhere((a) => a.url.path.endsWith('.mp3'))
+          //    .fetch();
+          //final voice =
+          //    await bot.voice.fetchVoiceState(event.guildId!, member.id);
+          final voice = event.guild!.voiceStates[member.id]!;
+          final vc = await voice.channel!.fetch() as VoiceChannel;
+          final player = await vc.connectLavalink();
+          await player.play(await lavalink
+              .loadTrack('https://gock.dev/email_empfangen.flac')
+              .then((v) => v.data));
+          player.onTrackEnd.listen((e) => player.disconnect());
+        },
     };
 
     final handler = commands[cmd];
@@ -130,6 +145,10 @@ void main(List<String> argv) async {
       }
     }
   });
+
+  if (lavalink == null) {
+    log.warning('No Lavalink configured');
+  }
 
   Duration interval() {
     final target = DateTime(2000, 1, 1, 1, 0, 45);
