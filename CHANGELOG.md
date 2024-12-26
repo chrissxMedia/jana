@@ -1,5 +1,6 @@
 ## 2.0.0
 
+- Add `!join` command
 - Use `youtube_poll`
 - Remove `!vids` (it requires custom youtube logic and wasn't used)
 - Poll for videos on the side channels

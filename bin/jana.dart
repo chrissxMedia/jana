@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -12,6 +13,7 @@ final log = Logger('jana');
 const internal = Snowflake(826983242493591592);
 const news = Snowflake(551908144641605642);
 const twinkspotting = Snowflake(1292515671439315027);
+const priv = [Snowflake(1310347280406151168), Snowflake(1285544156185366559)];
 final yt = YoutubePoll();
 final startupTime = DateTime.now().subtract(Duration(days: 1));
 const ytChannels = <(String, bool, Snowflake)>[
@@ -64,6 +66,7 @@ void main(List<String> argv) async {
   var lastLogMsg = '';
   var lastLogCount = 1;
   Logger.root.onRecord.listen((rec) => logMutex.protect(() async {
+        // TODO: if > 3900 dont send?
         final ping = rec.level >= Level.WARNING ? ' <@231670489779666944>' : '';
         var msg = '[${rec.level.name}] [${rec.loggerName}] ${rec.message}$ping';
         if (rec.error != null) msg += '\nError: ${rec.error}';
@@ -83,22 +86,47 @@ void main(List<String> argv) async {
 
   bot.onMessageCreate.listen((event) async {
     final msg = event.message;
+
+    if (!msg.content.startsWith('!') ||
+        event.member == null ||
+        msg.author is WebhookAuthor ||
+        (msg.author as User).isBot) {
+      return;
+    }
+
+    final member = await event.member!.get();
     final channel = await msg.channel.get() as TextChannel;
-    if (msg.author is WebhookAuthor || (msg.author as User).isBot) return;
-    log.info(
-        'Msg from ${msg.author.username}: ${msg.content} (${await msg.url})');
-    if (msg.content == '!ping') {
-      await channel.sendMessage(MessageBuilder(content: 'Pong!'));
-    } else if (msg.content.startsWith('!vid')) {
-      final ids = msg.content.split(' ')..removeAt(0);
-      for (final id in ids) {
-        try {
+    final args = msg.content.split(' ');
+    final cmd = args.removeAt(0).toLowerCase();
+
+    final commands = <String, FutureOr<dynamic> Function()>{
+      '!ping': () => channel.sendMessage(MessageBuilder(content: 'Pong!')),
+      '!vid': () async {
+        for (final id in args) {
           await yt.yt.videos.get(id).then(
               (v) => channel.sendJson(json.encode(videoToJson(v)), '$id.json'));
-        } catch (e, st) {
-          log.warning('!vid error', e, st);
-          await channel.sendMessage(MessageBuilder(content: e.toString()));
         }
+      },
+      '!join': () async {
+        if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
+        //final file = await msg.attachments
+        //    .firstWhere((a) => a.url.path.endsWith('.mp3'))
+        //    .fetch();
+        final voice =
+            await bot.voice.fetchVoiceState(event.guildId!, member.id);
+        final myState = GatewayVoiceStateBuilder(
+            channelId: voice.channelId, isMuted: false, isDeafened: false);
+        bot.updateVoiceState(event.guildId!, myState);
+      },
+    };
+
+    final handler = commands[cmd];
+    if (handler != null) {
+      try {
+        await handler();
+      } catch (e, st) {
+        log.warning('$cmd error', e, st);
+        await channel.sendMessage(MessageBuilder(content: e.toString()));
       }
     }
   });
