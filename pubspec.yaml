@@ -1,6 +1,6 @@
 name: jana
 description: A Discord bot
-version: 1.6.0-alpha.2
+version: 1.6.0-alpha.3
 homepage: https://github.com/chrissxMedia/jana
 
 environment:
@@ -18,4 +18,4 @@ dependencies:
   youtube_poll: ^0.2.0
 
 dev_dependencies:
-  lints: ^4.0.0
+  lints: ^5.0.0

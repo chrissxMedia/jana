@@ -103,9 +103,19 @@ void main(List<String> argv) async {
     }
   });
 
+  Duration interval() {
+    final target = DateTime(2000, 1, 1, 1, 0, 45);
+    final now = DateTime.now().copyWith(year: 2000, month: 1, day: 1, hour: 0);
+    final diff = target.difference(now);
+    if (diff < Duration(minutes: 1)) return Duration(minutes: 1);
+    if (diff > Duration(minutes: 30)) return Duration(minutes: 30);
+    return diff;
+  }
+
   for (final (id, not, dChan) in ytChannels) {
     await yt.ignoreOld(id);
-    yt.pollBatched(id).listen((vids) => handleNewVideos(bot, not, dChan, vids));
+    void handle(List<Video> vids) => handleNewVideos(bot, not, dChan, vids);
+    yt.pollBatched(id, interval).listen(handle);
   }
 }
 

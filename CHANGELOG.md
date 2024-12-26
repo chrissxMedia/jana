@@ -3,7 +3,8 @@
 - Use `youtube_poll`
 - Remove `!vids` (it requires custom youtube logic and wasn't used)
 - Poll for videos on the side channels
-- `lints` 4
+- Optimize the sleeping intervals to poll less, and more when needed
+- `lints` 5
 
 ## 1.5.3
 
