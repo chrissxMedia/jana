@@ -15,6 +15,7 @@ const internal = Snowflake(826983242493591592);
 const news = Snowflake(551908144641605642);
 const twinkspotting = Snowflake(1292515671439315027);
 const priv = [Snowflake(1310347280406151168), Snowflake(1285544156185366559)];
+const admins = Snowflake(569251424370819088);
 final yt = YoutubePoll();
 final startupTime = DateTime.now().subtract(Duration(days: 1));
 const ytChannels = <(String, bool, Snowflake)>[
@@ -80,7 +81,7 @@ void main(List<String> argv) async {
   var lastLogCount = 1;
   Logger.root.onRecord.listen((rec) => logMutex.protect(() async {
         // TODO: if > 3900 dont send?
-        final ping = rec.level >= Level.WARNING ? ' <@231670489779666944>' : '';
+        final ping = rec.level >= Level.WARNING ? ' <@&$admins>' : '';
         var msg = '[${rec.level.name}] [${rec.loggerName}] ${rec.message}$ping';
         if (rec.error != null) msg += '\nError: ${rec.error}';
         if (rec.stackTrace != null) {
@@ -123,18 +124,20 @@ void main(List<String> argv) async {
       if (lavalink != null)
         '!play': () async {
           if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
-          //final file = await msg.attachments
-          //    .firstWhere((a) => a.url.path.endsWith('.mp3'))
-          //    .fetch();
-          //final voice =
-          //    await bot.voice.fetchVoiceState(event.guildId!, member.id);
+          final sources = ['https://gock.dev/email_empfangen.flac'];
+          if (member.roleIds.contains(admins)) {
+            sources.addAll(msg.attachments
+                .where((a) => a.url.path.endsWith('.mp3'))
+                .map((a) => a.url.toString()));
+            sources.addAll(args);
+          }
           final voice = event.guild!.voiceStates[member.id]!;
           final vc = await voice.channel!.fetch() as VoiceChannel;
           final player = await vc.connectLavalink();
-          await player.play(await lavalink
-              .loadTrack('https://gock.dev/email_empfangen.flac')
-              .then((v) => v.data));
-          player.onTrackEnd.listen((e) => player.disconnect());
+          await player.playIdentifier(sources.removeAt(0));
+          player.onTrackEnd.listen((_) => sources.isNotEmpty
+              ? player.playIdentifier(sources.removeAt(0))
+              : player.disconnect());
         },
     };
 
