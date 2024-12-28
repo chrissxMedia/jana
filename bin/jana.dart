@@ -52,17 +52,20 @@ extension SendJson on TextChannel {
 }
 
 void main(List<String> argv) async {
-  final token = Platform.environment['JANA_DISCORD_TOKEN'] ?? argv.firstOrNull;
+  final env = Platform.environment;
+  final token = env['JANA_DISCORD_TOKEN']?.isNotEmpty ?? false
+      ? env['JANA_DISCORD_TOKEN']
+      : argv.firstOrNull;
   if (token == null || token.isEmpty) {
     stderr.writeln('No token provided (env JANA_DISCORD_TOKEN or pass as arg)');
     exit(1);
   }
 
-  final lavalink = Platform.environment.containsKey('JANA_LAVALINK_BASE') &&
-          Platform.environment.containsKey('JANA_LAVALINK_PASSWORD')
+  final lavalink = (env['JANA_LAVALINK_BASE']?.isNotEmpty ?? false) &&
+          (env['JANA_LAVALINK_PASSWORD']?.isNotEmpty ?? false)
       ? LavalinkPlugin(
-          base: Uri.parse(Platform.environment['JANA_LAVALINK_BASE']!),
-          password: Platform.environment['JANA_LAVALINK_PASSWORD']!,
+          base: Uri.parse(env['JANA_LAVALINK_BASE']!),
+          password: env['JANA_LAVALINK_PASSWORD']!,
         )
       : null;
 
