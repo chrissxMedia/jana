@@ -163,7 +163,6 @@ void main(List<String> argv) async {
     final target = DateTime(2000, 1, 1, 1, 0, 45);
     final now = DateTime.now().copyWith(year: 2000, month: 1, day: 1, hour: 0);
     final diff = target.difference(now);
-    log.info('interval: $target - $now = $diff');
     if (diff < Duration(minutes: 1)) return Duration(minutes: 1);
     if (diff > Duration(minutes: 30)) return Duration(minutes: 30);
     return diff;
