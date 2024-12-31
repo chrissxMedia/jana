@@ -126,14 +126,17 @@ void main(List<String> argv) async {
           if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
           final sources = ['https://gock.dev/email_empfangen.flac'];
           if (member.roleIds.contains(admins)) {
-            sources.addAll(msg.attachments
-                .where((a) => a.url.path.endsWith('.mp3'))
-                .map((a) => a.url.toString()));
+            sources.addAll(msg.attachments.map((a) => a.url.toString()));
             sources.addAll(args);
           }
           final voice = event.guild!.voiceStates[member.id]!;
           final vc = await voice.channel!.fetch() as VoiceChannel;
           final player = await vc.connectLavalink();
+          player.onTrackException.listen((e) {
+            log.warning('!play error', e);
+            channel.sendMessage(MessageBuilder(content: e.toString()));
+            player.disconnect();
+          });
           await player.playIdentifier(sources.removeAt(0));
           player.onTrackEnd.listen((_) => sources.isNotEmpty
               ? player.playIdentifier(sources.removeAt(0))
@@ -160,6 +163,7 @@ void main(List<String> argv) async {
     final target = DateTime(2000, 1, 1, 1, 0, 45);
     final now = DateTime.now().copyWith(year: 2000, month: 1, day: 1, hour: 0);
     final diff = target.difference(now);
+    log.info('interval: $target - $now = $diff');
     if (diff < Duration(minutes: 1)) return Duration(minutes: 1);
     if (diff > Duration(minutes: 30)) return Duration(minutes: 30);
     return diff;
