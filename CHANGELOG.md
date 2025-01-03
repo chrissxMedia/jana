@@ -5,7 +5,9 @@
 - Remove `!vids` (it requires custom youtube logic and wasn't used)
 - Poll for videos on the side channels
 - Optimize the sleeping intervals to poll less, and more when needed
+- Remove some in-discord logging that wasn't needed
 - `lints` 5
+- Add `!meow`
 
 ## 1.5.3
 

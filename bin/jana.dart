@@ -80,12 +80,20 @@ void main(List<String> argv) async {
   var lastLogMsg = '';
   var lastLogCount = 1;
   Logger.root.onRecord.listen((rec) => logMutex.protect(() async {
-        // TODO: if > 3900 dont send?
+        if (rec.level <= Level.INFO &&
+            rec.loggerName.startsWith('Nyxx.Shards')) {
+          return;
+        }
         final ping = rec.level >= Level.WARNING ? ' <@&$admins>' : '';
         var msg = '[${rec.level.name}] [${rec.loggerName}] ${rec.message}$ping';
-        if (rec.error != null) msg += '\nError: ${rec.error}';
+        if (rec.error != null) {
+          msg += '\nError: ${rec.error}';
+        }
         if (rec.stackTrace != null) {
           msg += '\nStack trace:\n```${rec.stackTrace}```';
+        }
+        if (msg.length > 3950) {
+          msg = '${msg.substring(0, 3950)} ... (see logs for full message)';
         }
         if (lastLogMsg == msg) {
           lastLog
@@ -120,6 +128,11 @@ void main(List<String> argv) async {
           await yt.yt.videos.get(id).then(
               (v) => channel.sendJson(json.encode(videoToJson(v)), '$id.json'));
         }
+      },
+      '!meow': () {
+        if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
+        log.info(Iterable.generate(4 * 420).map((_) => 'meow').join(' '));
+        channel.sendMessage(MessageBuilder(content: 'Meow!'));
       },
       if (lavalink != null)
         '!play': () async {
