@@ -92,8 +92,8 @@ void main(List<String> argv) async {
         if (rec.stackTrace != null) {
           msg += '\nStack trace:\n```${rec.stackTrace}```';
         }
-        if (msg.length > 3950) {
-          msg = '${msg.substring(0, 3950)} ... (see logs for full message)';
+        if (msg.length > 1950) {
+          msg = '${msg.substring(0, 1950)} ... (see logs for full message)';
         }
         if (lastLogMsg == msg) {
           lastLog
@@ -105,6 +105,8 @@ void main(List<String> argv) async {
           lastLogMsg = msg;
         }
       }));
+
+  bot.onReady.listen((_) => log.info('jana v2 is ready'));
 
   bot.onMessageCreate.listen((event) async {
     final msg = event.message;
