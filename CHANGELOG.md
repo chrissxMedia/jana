@@ -1,6 +1,6 @@
 ## 2.0.0
 
-- Add `!play` command (optional, needs Lavalink)
+- Add `!play` and `!speak` commands (optional, needs Lavalink)
 - Use `youtube_poll`
 - Remove `!vids` (it requires custom youtube logic and wasn't used)
 - Poll for videos on the side channels

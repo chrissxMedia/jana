@@ -142,18 +142,17 @@ void main(List<String> argv) async {
             sources.addAll(msg.attachments.map((a) => a.url.toString()));
             sources.addAll(args);
           }
-          final voice = event.guild!.voiceStates[member.id]!;
-          final vc = await voice.channel!.fetch() as VoiceChannel;
-          final player = await vc.connectLavalink();
-          player.onTrackException.listen((e) {
-            log.warning('!play error', e);
-            channel.sendMessage(MessageBuilder(content: e.toString()));
-            player.disconnect();
-          });
+          final player = await joinMemberVc(member, event.guild!, channel);
           await player.playIdentifier(sources.removeAt(0));
           player.onTrackEnd.listen((_) => sources.isNotEmpty
               ? player.playIdentifier(sources.removeAt(0))
               : player.disconnect());
+        },
+      if (lavalink != null)
+        '!speak': () async {
+          if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
+          final player = await joinMemberVc(member, event.guild!, channel);
+          await player.playIdentifier('speak:${args.join(' ')}');
         },
     };
 
@@ -172,23 +171,36 @@ void main(List<String> argv) async {
     log.warning('No Lavalink configured');
   }
 
-  Duration interval() {
-    final target = DateTime(2020, 1, 1, 1, 0, 45);
-    final now = DateTime.now().copyWith(year: 2020, month: 1, day: 1, hour: 0);
-    final diff = target.difference(now);
-    if (diff < Duration(minutes: 1)) return Duration(minutes: 1);
-    if (diff > Duration(minutes: 30)) return Duration(minutes: 30);
-    return diff;
-  }
-
   final ytMutex = Mutex();
   for (final (id, not, dChan) in ytChannels) {
     await yt.ignoreOld(id);
     void handle(List<Video> vids) =>
         ytMutex.protect(() => handleNewVideos(id, bot, not, dChan, vids));
     void er(Object e, StackTrace st) => log.severe('[yt] polling error', e, st);
-    yt.pollBatched(id, interval).listen(handle, onError: er);
+    yt.pollBatched(id, ytPollInterval).listen(handle, onError: er);
   }
+}
+
+Future<LavalinkPlayer> joinMemberVc(PartialMember member, PartialGuild guild,
+    [TextChannel? channel]) async {
+  final voice = guild.voiceStates[member.id]!;
+  final vc = await voice.channel!.fetch() as VoiceChannel;
+  final player = await vc.connectLavalink();
+  player.onTrackException.listen((e) {
+    log.warning('!play error', e);
+    channel?.sendMessage(MessageBuilder(content: e.toString()));
+    player.disconnect();
+  });
+  return player;
+}
+
+Duration ytPollInterval() {
+  final target = DateTime(2020, 1, 1, 1, 0, 45);
+  final now = DateTime.now().copyWith(year: 2020, month: 1, day: 1, hour: 0);
+  final diff = target.difference(now);
+  if (diff < Duration(minutes: 1)) return Duration(minutes: 1);
+  if (diff > Duration(minutes: 30)) return Duration(minutes: 30);
+  return diff;
 }
 
 Future<void> handleNewVideos(String id, NyxxGateway bot, bool notify,
