@@ -21,7 +21,7 @@ final startupTime = DateTime.now().subtract(Duration(days: 1));
 const ytChannels = <(String, bool, Snowflake)>[
   ("UCZs3FO5nPvK9VveqJLIvv_w", true, news), // main
   ("UCF7z3rssaZjx7SxJ0IqSNvw", false, news), // xxlp
-  ("UC20oDKphj67NRDwKKy3JC_A", false, news), // pixeleng
+  ("UC20oDKphj67NRDwKKy3JC_A", true, news), // pixeleng
   ("UCMawD8L365TRdcqhQiTDLKA", false, twinkspotting), // twinkspotting
 ];
 
