@@ -79,11 +79,9 @@ void main(List<String> argv) async {
   Message? lastLog;
   var lastLogMsg = '';
   var lastLogCount = 1;
+  Logger.root.level = Level.FINE;
   Logger.root.onRecord.listen((rec) => logMutex.protect(() async {
-        if (rec.level <= Level.INFO &&
-            rec.loggerName.startsWith('Nyxx.Shards')) {
-          return;
-        }
+        if (rec.level <= Level.INFO) return;
         final ping = rec.level >= Level.WARNING ? ' <@&$admins>' : '';
         var msg = '[${rec.level.name}] [${rec.loggerName}] ${rec.message}$ping';
         if (rec.error != null) {
@@ -175,25 +173,29 @@ void main(List<String> argv) async {
   }
 
   Duration interval() {
-    final target = DateTime(2000, 1, 1, 1, 0, 45);
-    final now = DateTime.now().copyWith(year: 2000, month: 1, day: 1, hour: 0);
+    final target = DateTime(2020, 1, 1, 1, 0, 45);
+    final now = DateTime.now().copyWith(year: 2020, month: 1, day: 1, hour: 0);
     final diff = target.difference(now);
     if (diff < Duration(minutes: 1)) return Duration(minutes: 1);
     if (diff > Duration(minutes: 30)) return Duration(minutes: 30);
     return diff;
   }
 
+  final ytMutex = Mutex();
   for (final (id, not, dChan) in ytChannels) {
     await yt.ignoreOld(id);
-    void handle(List<Video> vids) => handleNewVideos(bot, not, dChan, vids);
+    void handle(List<Video> vids) =>
+        ytMutex.protect(() => handleNewVideos(id, bot, not, dChan, vids));
     void er(Object e, StackTrace st) => log.severe('[yt] polling error', e, st);
     yt.pollBatched(id, interval).listen(handle, onError: er);
   }
 }
 
-Future<void> handleNewVideos(
-    NyxxGateway bot, bool notify, Snowflake dcChannel, List<Video> vids) async {
+Future<void> handleNewVideos(String id, NyxxGateway bot, bool notify,
+    Snowflake dcChannel, List<Video> vids) async {
   log.info('[yt] new videos: $vids');
+  log.fine('[yt] from $id for $dcChannel');
+  if (vids.isEmpty) return;
   try {
     // TODO: consider putting the message before the video it belongs to
     final messages = <String>[];
@@ -213,7 +215,7 @@ Future<void> handleNewVideos(
       }
 
       Iterable<String> lines(String separator) => vid.description
-          .replaceAll('\r', '')
+          .replaceAll('\r', '\n')
           .split('\n')
           .where((s) => s.startsWith(separator))
           .map((s) => s.replaceFirst(separator, ''));
