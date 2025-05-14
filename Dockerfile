@@ -10,8 +10,4 @@ FROM scratch
 COPY --from=build /runtime/ /
 COPY --from=build /app/bin/app /app/bin/
 
-ENV JANA_DISCORD_TOKEN=
-ENV JANA_LAVALINK_BASE=http://localhost:2333
-ENV JANA_LAVALINK_PASSWORD=
-
 CMD ["/app/bin/app"]
