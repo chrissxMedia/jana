@@ -153,6 +153,8 @@ void main(List<String> argv) async {
           if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
           final player = await joinMemberVc(member, event.guild!, channel);
           await player.playIdentifier('speak:${args.join(' ')}');
+          player.onTrackEnd.listen((_) => Future.delayed(
+              Duration(milliseconds: 100), () => player.disconnect()));
         },
     };
 
