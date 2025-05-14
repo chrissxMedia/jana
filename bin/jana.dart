@@ -186,7 +186,8 @@ void main(List<String> argv) async {
   for (final (id, not, dChan) in ytChannels) {
     await yt.ignoreOld(id);
     void handle(List<Video> vids) => handleNewVideos(bot, not, dChan, vids);
-    yt.pollBatched(id, interval).listen(handle);
+    void er(Object e, StackTrace st) => log.severe('[yt] polling error', e, st);
+    yt.pollBatched(id, interval).listen(handle, onError: er);
   }
 }
 
