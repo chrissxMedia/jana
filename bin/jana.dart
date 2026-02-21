@@ -6,6 +6,9 @@ import 'package:mutex/mutex.dart';
 import 'package:nyxx/nyxx.dart';
 import 'package:nyxx_extensions/nyxx_extensions.dart';
 import 'package:nyxx_lavalink/nyxx_lavalink.dart';
+import 'package:prometheus_client/runtime_metrics.dart' as runtime_metrics;
+import 'package:prometheus_client_shelf/shelf_handler.dart';
+import 'package:shelf/shelf_io.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:youtube_poll/youtube_poll.dart';
 
@@ -75,6 +78,11 @@ void main(List<String> argv) async {
       options: GatewayClientOptions(
           plugins: [logging, cliIntegration, if (lavalink != null) lavalink]));
 
+  runtime_metrics.register();
+  serve(prometheusHandler(), InternetAddress.anyIPv6, 8988)
+      .then((s) => log.info(
+          'Serving metrics at http://${s.address.host}:${s.port}/metrics'));
+
   final logMutex = Mutex();
   Message? lastLog;
   var lastLogMsg = '';
@@ -108,6 +116,7 @@ void main(List<String> argv) async {
 
   bot.onMessageCreate.listen((event) async {
     final msg = event.message;
+    log.fine('${msg.author.username}: $msg');
 
     if (!msg.content.startsWith('!') ||
         event.member == null ||
@@ -207,7 +216,7 @@ Duration ytPollInterval() {
 
 Future<void> handleNewVideos(String id, NyxxGateway bot, bool notify,
     Snowflake dcChannel, List<Video> vids) async {
-  log.info('[yt] new videos: $vids');
+  log.info('[yt] new videos: $vids'); // TODO:
   log.fine('[yt] from $id for $dcChannel');
   if (vids.isEmpty) return;
   try {

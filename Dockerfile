@@ -10,4 +10,5 @@ FROM scratch
 COPY --from=build /runtime/ /
 COPY --from=build /app/bin/app /app/bin/
 
-CMD ["/app/bin/app"]
+EXPOSE 8988
+ENTRYPOINT ["/app/bin/app"]

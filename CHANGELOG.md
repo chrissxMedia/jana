@@ -1,3 +1,8 @@
+## 2.0.1
+
+- Basic prometheus support
+- Upgrade dependencies
+
 ## 2.0.0
 
 - Add `!play` and `!speak` commands (optional, needs Lavalink)
