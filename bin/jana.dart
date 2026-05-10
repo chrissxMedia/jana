@@ -79,9 +79,8 @@ void main(List<String> argv) async {
           plugins: [logging, cliIntegration, if (lavalink != null) lavalink]));
 
   runtime_metrics.register();
-  serve(prometheusHandler(), InternetAddress.anyIPv6, 8988)
-      .then((s) => log.info(
-          'Serving metrics at http://${s.address.host}:${s.port}/metrics'));
+  serve(prometheusHandler(), InternetAddress.anyIPv6, 8988).then((s) => log
+      .info('Serving metrics at http://${s.address.host}:${s.port}/metrics'));
 
   final logMutex = Mutex();
   Message? lastLog;
@@ -90,6 +89,8 @@ void main(List<String> argv) async {
   Logger.root.level = Level.FINE;
   Logger.root.onRecord.listen((rec) => logMutex.protect(() async {
         if (rec.level <= Level.INFO) return;
+        if (rec.loggerName.contains("Nyxx.") &&
+            rec.message.contains("rate limiting")) return;
         final ping = rec.level >= Level.WARNING ? ' <@&$admins>' : '';
         var msg = '[${rec.level.name}] [${rec.loggerName}] ${rec.message}$ping';
         if (rec.error != null) {
@@ -142,6 +143,11 @@ void main(List<String> argv) async {
         if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
         log.info(Iterable.generate(4 * 420).map((_) => 'meow').join(' '));
         channel.sendMessage(MessageBuilder(content: 'Meow!'));
+      },
+      '!stop': () async {
+        if (!member.roleIds.contains(admins)) throw 'Not authorized';
+        await msg.url.then((x) => 'shut down requested: $x').then(log.info);
+        exit(0);
       },
       if (lavalink != null)
         '!play': () async {

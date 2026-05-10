@@ -1,3 +1,9 @@
+## 2.1.0
+
+- `!stop` command that calls `exit(0)` to restart from Discord
+- Logging: include `INFO` messages in the Discord log channel
+- Logging: exclude messages about rate limiting from the Discord log channel
+
 ## 2.0.1
 
 - Basic prometheus support
