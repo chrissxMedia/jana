@@ -252,11 +252,8 @@ Future<void> handleNewVideos(String id, NyxxGateway bot, bool notify,
   log.fine('[yt] from $id for $dcChannel');
   if (vids.isEmpty) return;
   try {
-    // TODO: consider putting the message before the video it belongs to
-    final messages = <String>[];
+    final blocks = <String>[];
     final reactions = <String>[];
-    final links = <String>[];
-    final ids = <String>[];
     final channel = await bot.channels.get(dcChannel) as TextChannel;
     late final List<Message> history;
     try {
@@ -269,7 +266,6 @@ Future<void> handleNewVideos(String id, NyxxGateway bot, bool notify,
       log.info('[yt] processing video', vid.url);
       (await bot.channels.get(internal) as TextChannel)
           .sendJson(json.encode(videoToJson(vid)), 'vid.json');
-      ids.add(vid.id.value);
 
       if ((vid.publishDate ?? vid.uploadDate ?? DateTime.now())
           .isBefore(startupTime)) {
@@ -287,19 +283,16 @@ Future<void> handleNewVideos(String id, NyxxGateway bot, bool notify,
           .split('\n')
           .where((s) => s.startsWith(separator))
           .map((s) => s.replaceFirst(separator, ''));
-      messages.addAll(lines('janamsg: '));
+      final videoMessage = lines('janamsg: ').join('\n');
       reactions.addAll(lines('janareact: '));
-      links.add('https://youtu.be/${vid.id.value}');
-      log.info('[yt] added');
+      blocks.add('$videoMessage\nhttps://youtu.be/${vid.id.value}');
+      log.info('[yt] added ${vid.id.value}');
     }
-    if (links.isNotEmpty) {
+    if (blocks.isNotEmpty) {
       log.info('[yt] building and sending message');
-      final message =
-          messages.isEmpty ? '' : messages.reduce((a, b) => '$a\n$b');
-      final link = links.reduce((p, e) => '$p $e');
       final tag = notify ? '@everyone ' : '';
       final msg = await channel
-          .sendMessage(MessageBuilder(content: '$tag$message\n$link'));
+          .sendMessage(MessageBuilder(content: '$tag${blocks.join('\n')}'));
       await Future.wait(reactions
           .map(bot.getTextEmoji)
           .map(ReactionBuilder.fromEmoji)
