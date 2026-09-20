@@ -131,49 +131,75 @@ void main(List<String> argv) async {
     final args = msg.content.split(' ');
     final cmd = args.removeAt(0).toLowerCase();
 
-    final commands = <String, FutureOr<dynamic> Function()>{
-      '!ping': () => channel.sendMessage(MessageBuilder(content: 'Pong!')),
-      '!vid': () async {
-        for (final id in args) {
-          await yt.yt.videos.get(id).then(
-              (v) => channel.sendJson(json.encode(videoToJson(v)), '$id.json'));
-        }
-      },
-      '!meow': () {
-        if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
-        log.info(Iterable.generate(4 * 420).map((_) => 'meow').join(' '));
-        channel.sendMessage(MessageBuilder(content: 'Meow!'));
-      },
-      '!stop': () async {
-        if (!member.roleIds.contains(admins)) throw 'Not authorized';
-        await msg.url.then((x) => 'shut down requested: $x').then(log.info);
-        exit(0);
-      },
-      if (lavalink != null)
-        '!play': () async {
-          if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
-          final sources = ['https://gock.dev/email_empfangen.flac'];
-          if (member.roleIds.contains(admins)) {
-            sources.addAll(msg.attachments.map((a) => a.url.toString()));
-            sources.addAll(args);
+    final commands = <String, (String, FutureOr<dynamic> Function())>{
+      '!ping': (
+        'replies with Pong! (everyone)',
+        () => channel.sendMessage(MessageBuilder(content: 'Pong!'))
+      ),
+      '!vid': (
+        '<id...> - dumps video info as JSON (everyone)',
+        () async {
+          for (final id in args) {
+            await yt.yt.videos.get(id).then(
+                (v) => channel.sendJson(json.encode(videoToJson(v)), '$id.json'));
           }
-          final player = await joinMemberVc(member, event.guild!, channel);
-          await player.playIdentifier(sources.removeAt(0));
-          player.onTrackEnd.listen((_) => sources.isNotEmpty
-              ? player.playIdentifier(sources.removeAt(0))
-              : player.disconnect());
-        },
-      if (lavalink != null)
-        '!speak': () async {
+        }
+      ),
+      '!meow': (
+        'says Meow! (requires priv role)',
+        () {
           if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
-          final player = await joinMemberVc(member, event.guild!, channel);
-          await player.playIdentifier('speak:${args.join(' ')}');
-          player.onTrackEnd.listen((_) => Future.delayed(
-              Duration(milliseconds: 100), () => player.disconnect()));
-        },
+          log.info(Iterable.generate(4 * 420).map((_) => 'meow').join(' '));
+          channel.sendMessage(MessageBuilder(content: 'Meow!'));
+        }
+      ),
+      '!stop': (
+        'shuts down the bot (requires admins role)',
+        () async {
+          if (!member.roleIds.contains(admins)) throw 'Not authorized';
+          await msg.url.then((x) => 'shut down requested: $x').then(log.info);
+          exit(0);
+        }
+      ),
+      if (lavalink != null)
+        '!play': (
+          '[url...] - plays audio in your voice channel (requires priv role)',
+          () async {
+            if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
+            final sources = ['https://gock.dev/email_empfangen.flac'];
+            if (member.roleIds.contains(admins)) {
+              sources.addAll(msg.attachments.map((a) => a.url.toString()));
+              sources.addAll(args);
+            }
+            final player = await joinMemberVc(member, event.guild!, channel);
+            await player.playIdentifier(sources.removeAt(0));
+            player.onTrackEnd.listen((_) => sources.isNotEmpty
+                ? player.playIdentifier(sources.removeAt(0))
+                : player.disconnect());
+          }
+        ),
+      if (lavalink != null)
+        '!speak': (
+          '<text> - speaks text in your voice channel (requires priv role)',
+          () async {
+            if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
+            final player = await joinMemberVc(member, event.guild!, channel);
+            await player.playIdentifier('speak:${args.join(' ')}');
+            player.onTrackEnd.listen((_) => Future.delayed(
+                Duration(milliseconds: 100), () => player.disconnect()));
+          }
+        ),
     };
+    commands['!help'] = (
+      'lists all commands (everyone)',
+      () {
+        final lines =
+            commands.entries.map((e) => '${e.key} ${e.value.$1}').join('\n');
+        return channel.sendMessage(MessageBuilder(content: lines));
+      }
+    );
 
-    final handler = commands[cmd];
+    final handler = commands[cmd]?.$2;
     if (handler != null) {
       try {
         await handler();
