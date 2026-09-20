@@ -257,6 +257,14 @@ Future<void> handleNewVideos(String id, NyxxGateway bot, bool notify,
     final reactions = <String>[];
     final links = <String>[];
     final ids = <String>[];
+    final channel = await bot.channels.get(dcChannel) as TextChannel;
+    late final List<Message> history;
+    try {
+      history = await channel.messages.fetchMany(limit: 50);
+    } catch (e, st) {
+      log.warning('[yt] history fetch failed, posting anyway', e, st);
+      history = [];
+    }
     for (final vid in vids) {
       log.info('[yt] processing video', vid.url);
       (await bot.channels.get(internal) as TextChannel)
@@ -266,6 +274,11 @@ Future<void> handleNewVideos(String id, NyxxGateway bot, bool notify,
       if ((vid.publishDate ?? vid.uploadDate ?? DateTime.now())
           .isBefore(startupTime)) {
         log.warning('[yt] is an old video');
+        continue;
+      }
+
+      if (history.any((m) => m.content.contains(vid.id.value))) {
+        log.info('[yt] already posted, skipping ${vid.id.value}');
         continue;
       }
 
@@ -285,7 +298,7 @@ Future<void> handleNewVideos(String id, NyxxGateway bot, bool notify,
           messages.isEmpty ? '' : messages.reduce((a, b) => '$a\n$b');
       final link = links.reduce((p, e) => '$p $e');
       final tag = notify ? '@everyone ' : '';
-      final msg = await (await bot.channels.get(dcChannel) as TextChannel)
+      final msg = await channel
           .sendMessage(MessageBuilder(content: '$tag$message\n$link'));
       await Future.wait(reactions
           .map(bot.getTextEmoji)
