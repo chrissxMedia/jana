@@ -9,6 +9,7 @@ import 'package:nyxx_lavalink/nyxx_lavalink.dart';
 import 'package:prometheus_client/runtime_metrics.dart' as runtime_metrics;
 import 'package:prometheus_client_shelf/shelf_handler.dart';
 import 'package:shelf/shelf_io.dart';
+import 'package:webfeed_revised/webfeed_revised.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:youtube_poll/youtube_poll.dart';
 
@@ -26,6 +27,12 @@ const ytChannels = <(String, bool, Snowflake)>[
   ("UCF7z3rssaZjx7SxJ0IqSNvw", false, news), // xxlp
   ("UC20oDKphj67NRDwKKy3JC_A", true, news), // pixeleng
   ("UCMawD8L365TRdcqhQiTDLKA", false, twinkspotting), // twinkspotting
+];
+
+const rssFeeds = <String>[
+  "https://zerm.eu/rss.xml",
+  "https://gock.dev/blog/rss.xml",
+  "https://chrissx.de/notices/rss.xml",
 ];
 
 Map videoToJson(Video v) => {
@@ -222,6 +229,18 @@ void main(List<String> argv) async {
     void er(Object e, StackTrace st) => log.severe('[yt] polling error', e, st);
     yt.pollBatched(id, ytPollInterval).listen(handle, onError: er);
   }
+
+  final rssMutex = Mutex();
+  for (final url in rssFeeds) {
+    final seen = <String>{};
+    var first = true;
+    Future<void> poll() => rssMutex.protect(() async {
+          await handleNewRssItems(url, bot, seen, seedOnly: first);
+          first = false;
+        });
+    await poll();
+    Timer.periodic(const Duration(minutes: 10), (_) => poll());
+  }
 }
 
 Future<LavalinkPlayer> joinMemberVc(PartialMember member, PartialGuild guild,
@@ -308,5 +327,63 @@ Future<void> handleNewVideos(String id, NyxxGateway bot, bool notify,
     }
   } catch (e, st) {
     log.severe('[yt] update error', e, st);
+  }
+}
+
+Future<List<(String id, String title, String link)>> fetchRssEntries(
+    String url) async {
+  final client = HttpClient();
+  try {
+    final req =
+        await client.getUrl(Uri.parse(url)).timeout(Duration(seconds: 20));
+    final res = await req.close().timeout(Duration(seconds: 20));
+    if (res.statusCode != HttpStatus.ok) {
+      throw HttpException('HTTP ${res.statusCode} for $url');
+    }
+    final xml =
+        await res.transform(utf8.decoder).join().timeout(Duration(seconds: 20));
+    final feed = RssFeed.parse(xml);
+    return [
+      for (final item in feed.items ?? <RssItem>[])
+        if ((item.link ?? '').isNotEmpty)
+          (item.guid ?? item.link!, item.title ?? 'New post', item.link!),
+    ];
+  } finally {
+    client.close();
+  }
+}
+
+Future<void> handleNewRssItems(String url, NyxxGateway bot, Set<String> seen,
+    {bool seedOnly = false}) async {
+  try {
+    final entries = await fetchRssEntries(url);
+    final fresh = entries.where((e) => !seen.contains(e.$1)).toList();
+    if (seedOnly) {
+      seen.addAll(entries.map((e) => e.$1));
+      log.info('[rss] seeded ${entries.length} items from $url');
+      return;
+    }
+    if (fresh.isEmpty) return;
+    final channel = await bot.channels.get(news) as TextChannel;
+    late final List<Message> history;
+    try {
+      history = await channel.messages.fetchMany(limit: 50);
+    } catch (e, st) {
+      log.warning('[rss] history fetch failed, posting anyway', e, st);
+      history = [];
+    }
+    for (final (id, title, link) in fresh) {
+      log.info('[rss] new item: $title $link');
+      if (history.any((m) =>
+          m.content.contains(id) ||
+          (link.isNotEmpty && m.content.contains(link)))) {
+        log.info('[rss] already posted, skipping $id');
+        continue;
+      }
+      await channel.sendMessage(MessageBuilder(content: '$title\n$link'));
+    }
+    seen.addAll(fresh.map((e) => e.$1));
+  } catch (e, st) {
+    log.warning('[rss] fetch/parse failed for $url', e, st);
   }
 }
