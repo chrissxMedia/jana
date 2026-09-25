@@ -235,8 +235,9 @@ void main(List<String> argv) async {
     final seen = <String>{};
     var first = true;
     Future<void> poll() => rssMutex.protect(() async {
-          await handleNewRssItems(url, bot, seen, seedOnly: first);
-          first = false;
+          if (await handleNewRssItems(url, bot, seen, seedOnly: first)) {
+            first = false;
+          }
         });
     await poll();
     Timer.periodic(const Duration(minutes: 10), (_) => poll());
@@ -323,8 +324,8 @@ Future<void> handleNewVideos(String id, NyxxGateway bot, bool notify,
   }
 }
 
-Future<List<(String id, String title, String link)>> fetchRssEntries(
-    String url) async {
+Future<List<(String id, String title, String link, DateTime? pubDate)>>
+    fetchRssEntries(String url) async {
   final client = HttpClient();
   try {
     final req =
@@ -339,24 +340,33 @@ Future<List<(String id, String title, String link)>> fetchRssEntries(
     return [
       for (final item in feed.items ?? <RssItem>[])
         if ((item.link ?? '').isNotEmpty)
-          (item.guid ?? item.link!, item.title ?? 'New post', item.link!),
+          (
+            item.guid ?? item.link!,
+            item.title ?? 'New post',
+            item.link!,
+            item.pubDate,
+          ),
     ];
   } finally {
     client.close();
   }
 }
 
-Future<void> handleNewRssItems(String url, NyxxGateway bot, Set<String> seen,
+Future<bool> handleNewRssItems(String url, NyxxGateway bot, Set<String> seen,
     {bool seedOnly = false}) async {
   try {
     final entries = await fetchRssEntries(url);
-    final fresh = entries.where((e) => !seen.contains(e.$1)).toList();
     if (seedOnly) {
       seen.addAll(entries.map((e) => e.$1));
       log.info('[rss] seeded ${entries.length} items from $url');
-      return;
+      return true;
     }
-    if (fresh.isEmpty) return;
+    seen.addAll(entries
+        .where((entry) =>
+            entry.$4 != null && !entry.$4!.isAfter(startupTime))
+        .map((entry) => entry.$1));
+    final fresh = entries.where((entry) => !seen.contains(entry.$1)).toList();
+    if (fresh.isEmpty) return true;
     final channel = await bot.channels.get(news) as TextChannel;
     late final List<Message> history;
     try {
@@ -365,7 +375,7 @@ Future<void> handleNewRssItems(String url, NyxxGateway bot, Set<String> seen,
       log.warning('[rss] history fetch failed, posting anyway', e, st);
       history = [];
     }
-    for (final (id, title, link) in fresh) {
+    for (final (id, title, link, _) in fresh) {
       log.info('[rss] new item: $title $link');
       if (history.any((m) =>
           m.content.contains(id) ||
@@ -376,7 +386,9 @@ Future<void> handleNewRssItems(String url, NyxxGateway bot, Set<String> seen,
       await channel.sendMessage(MessageBuilder(content: '$title\n$link'));
     }
     seen.addAll(fresh.map((e) => e.$1));
+    return true;
   } catch (e, st) {
-    log.warning('[rss] fetch/parse failed for $url', e, st);
+    log.warning('[rss] processing failed for $url', e, st);
+    return false;
   }
 }
