@@ -362,8 +362,11 @@ Future<bool> handleNewRssItems(String url, NyxxGateway bot, Set<String> seen,
       return true;
     }
     seen.addAll(entries
-        .where((entry) =>
-            entry.$4 != null && !entry.$4!.isAfter(startupTime))
+        .where((entry) => entry.$4 != null &&
+            (url == 'https://chrissx.de/notices/rss.xml'
+                ? entry.$4!.isBefore(
+                    DateTime(startupTime.year, startupTime.month))
+                : !entry.$4!.isAfter(startupTime)))
         .map((entry) => entry.$1));
     final fresh = entries.where((entry) => !seen.contains(entry.$1)).toList();
     if (fresh.isEmpty) return true;
