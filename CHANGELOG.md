@@ -1,3 +1,9 @@
+## 2.2.0
+
+- Skip videos already posted in target channel (#1)
+- Add `!help`, command docs (#2)
+- Put each `janamsg` before the video it belongs to (#3)
+
 ## 2.1.0
 
 - `!stop` command that calls `exit(0)` to restart from Discord
