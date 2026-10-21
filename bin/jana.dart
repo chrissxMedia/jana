@@ -12,8 +12,9 @@ import 'package:shelf/shelf_io.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:youtube_poll/youtube_poll.dart';
 
+import 'lavalink.dart';
+
 final log = Logger('jana');
-final playingGuilds = <Snowflake>{};
 
 const internal = Snowflake(826983242493591592);
 const news = Snowflake(551908144641605642);
@@ -131,7 +132,7 @@ void main(List<String> argv) async {
 
     final member = await event.member!.get();
     final channel = await msg.channel.get() as TextChannel;
-    final args = msg.content.split(' ');
+    final args = msg.content.split(RegExp(r'\s+'));
     final cmd = args.removeAt(0).toLowerCase();
 
     final commands = <String, (String, FutureOr<dynamic> Function())>{
@@ -172,11 +173,7 @@ void main(List<String> argv) async {
             final sources = [
               ...msg.attachments.map((a) => a.url.toString()),
               ...args
-                  .join(' ')
-                  .split(RegExp(r'\s+'))
-                  .map((s) => s.startsWith('<') && s.endsWith('>')
-                      ? s.substring(1, s.length - 1)
-                      : s)
+                  .map((s) => s.replaceAll(RegExp(r'^<|>$'), ''))
                   .where((s) => s.isNotEmpty),
             ];
             if (sources.isEmpty) throw 'Provide a URL or attach an audio file';
@@ -225,100 +222,6 @@ void main(List<String> argv) async {
         ytMutex.protect(() => handleNewVideos(id, bot, not, dChan, vids));
     void er(Object e, StackTrace st) => log.severe('[yt] polling error', e, st);
     yt.pollBatched(id, ytPollInterval).listen(handle, onError: er);
-  }
-}
-
-Future<void> playInMemberVc(
-    PartialMember member, PartialGuild guild, List<String> sources) async {
-  final voiceChannel = guild.voiceStates[member.id]?.channel;
-  if (voiceChannel == null) throw 'Join a voice channel first';
-  if (!playingGuilds.add(guild.id)) {
-    throw 'Already playing audio in this server';
-  }
-  try {
-    final vc = await voiceChannel.fetch() as VoiceChannel;
-    log.info(
-        '[voice] connecting to channel ${vc.id} for ${sources.length} track(s)');
-    final player = await vc.connectLavalink();
-    log.fine('[voice] connected to channel ${vc.id}');
-    var ended = Completer<void>();
-    Timer? watchdog;
-    Duration? lastPosition;
-    var wasConnected = false;
-    void fail(Object error, [StackTrace? stack]) {
-      if (ended.isCompleted) return;
-      watchdog?.cancel();
-      ended.completeError(error, stack ?? StackTrace.current);
-    }
-
-    void watchProgress() {
-      watchdog?.cancel();
-      watchdog = Timer(Duration(seconds: 30),
-          () => fail(StateError('No playback progress for 30 seconds')));
-    }
-
-    final subscriptions = [
-      player.onTrackEnd.listen((event) {
-        log.fine('[voice] track ended: ${event.reason}');
-        if (ended.isCompleted) return;
-        watchdog?.cancel();
-        if (event.reason == 'loadFailed') {
-          fail(StateError('Track failed to load'));
-        } else {
-          ended.complete();
-        }
-      }, onError: fail),
-      player.onTrackException.listen((e) {
-        fail(
-            e.exception.message ?? e.exception.cause,
-            e.exception.causeStackTrace.isEmpty
-                ? StackTrace.current
-                : StackTrace.fromString(e.exception.causeStackTrace));
-      }, onError: fail),
-      player.onTrackStuck
-          .listen((_) => fail(StateError('Track stalled')), onError: fail),
-      player.onWebsocketClosed.listen(
-          (event) =>
-              fail(StateError('Voice connection closed: ${event.reason}')),
-          onError: fail),
-      player.onUpdate.listen((event) {
-        if (!event.state.isConnected) {
-          if (wasConnected) fail(StateError('Voice connection lost'));
-          return;
-        }
-        wasConnected = true;
-        if (lastPosition != event.state.position) {
-          lastPosition = event.state.position;
-          watchProgress();
-        }
-      },
-          onError: fail,
-          onDone: () => fail(StateError('Player updates stopped'))),
-    ];
-    try {
-      for (var i = 0; i < sources.length; i++) {
-        ended = Completer<void>();
-        lastPosition = null;
-        watchProgress();
-        log.fine('[voice] starting track ${i + 1}/${sources.length}');
-        await Future.wait([
-          player.playIdentifier(sources[i]).timeout(Duration(seconds: 30)),
-          ended.future,
-        ], eagerError: true);
-      }
-      await Future.delayed(Duration(milliseconds: 100));
-    } finally {
-      watchdog?.cancel();
-      await Future.wait(subscriptions.map((s) => s.cancel()));
-      try {
-        await player.disconnect();
-        log.fine('[voice] disconnected from channel ${vc.id}');
-      } catch (e, st) {
-        log.warning('[voice] disconnect failed', e, st);
-      }
-    }
-  } finally {
-    playingGuilds.remove(guild.id);
   }
 }
 
