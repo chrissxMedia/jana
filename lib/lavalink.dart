@@ -17,7 +17,7 @@ Future<void> playInMemberVc(
     final vc = await voiceChannel.fetch() as VoiceChannel;
     _log.info(
         '[voice] connecting to channel ${vc.id} for ${sources.length} track(s)');
-    final player = await vc.connectLavalink();
+    final player = await vc.connectLavalink().timeout(Duration(seconds: 30));
     Duration? position;
     final events = StreamIterator(player.plugin.onMessage.where((event) {
       if (event.client != player.lavalinkClient) return false;
