@@ -28,3 +28,8 @@ Run `!help` in Discord to list all commands. Output matches this table.
 | `!help`          | lists all commands                                 | everyone | no       |
 
 `!play` and `!speak` only exist when Lavalink is configured.
+
+Only one playback command can run per server at a time. Playback stops if
+Lavalink reports a stalled track or lost voice connection, or if the playback
+position stops changing for 30 seconds. Healthy tracks and streams have no
+length limit.
