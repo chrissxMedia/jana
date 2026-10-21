@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:jana/lavalink.dart';
 import 'package:mutex/mutex.dart';
 import 'package:nyxx/nyxx.dart';
 import 'package:nyxx_extensions/nyxx_extensions.dart';
@@ -11,8 +12,6 @@ import 'package:prometheus_client_shelf/shelf_handler.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:youtube_poll/youtube_poll.dart';
-
-import 'lavalink.dart';
 
 final log = Logger('jana');
 
