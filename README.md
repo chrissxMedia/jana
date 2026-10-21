@@ -17,14 +17,14 @@ docker run -d --restart=unless-stopped --pull=always --network lavalink -e SERVE
 
 Run `!help` in Discord to list all commands. Output matches this table.
 
-| Command          | Description                       | Who                                          | Lavalink |
-| ---------------- | --------------------------------- | -------------------------------------------- | -------- |
-| `!ping`          | replies with Pong!                | everyone                                     | no       |
-| `!vid <id...>`   | dumps video info as JSON          | everyone                                     | no       |
-| `!meow`          | says Meow!                        | priv                                         | no       |
-| `!stop`          | shuts down the bot                | admins                                       | no       |
-| `!play [url...]` | plays audio in your voice channel | priv (admins may also pass URLs/attachments) | yes      |
-| `!speak <text>`  | speaks text in your voice channel | priv                                         | yes      |
-| `!help`          | lists all commands                | everyone                                     | no       |
+| Command          | Description                                        | Who      | Lavalink |
+| ---------------- | -------------------------------------------------- | -------- | -------- |
+| `!ping`          | replies with Pong!                                 | everyone | no       |
+| `!vid <id...>`   | dumps video info as JSON                           | everyone | no       |
+| `!meow`          | says Meow!                                         | priv     | no       |
+| `!stop`          | shuts down the bot                                 | admins   | no       |
+| `!play [url...]` | plays URLs or attached audio in your voice channel | priv     | yes      |
+| `!speak <text>`  | speaks text in your voice channel                  | priv     | yes      |
+| `!help`          | lists all commands                                 | everyone | no       |
 
 `!play` and `!speak` only exist when Lavalink is configured.

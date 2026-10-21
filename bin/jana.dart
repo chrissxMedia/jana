@@ -90,7 +90,9 @@ void main(List<String> argv) async {
   Logger.root.onRecord.listen((rec) => logMutex.protect(() async {
         if (rec.level <= Level.INFO) return;
         if (rec.loggerName.contains("Nyxx.") &&
-            rec.message.contains("rate limiting")) return;
+            rec.message.contains("rate limiting")) {
+          return;
+        }
         final ping = rec.level >= Level.WARNING ? ' <@&$admins>' : '';
         var msg = '[${rec.level.name}] [${rec.loggerName}] ${rec.message}$ping';
         if (rec.error != null) {
@@ -163,19 +165,21 @@ void main(List<String> argv) async {
       ),
       if (lavalink != null)
         '!play': (
-          '[url...] - plays audio in your voice channel (requires priv role)',
+          '[url...] - plays URLs or attached audio in your voice channel (requires priv role)',
           () async {
             if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
-            final sources = ['https://gock.dev/email_empfangen.flac'];
-            if (member.roleIds.contains(admins)) {
-              sources.addAll(msg.attachments.map((a) => a.url.toString()));
-              sources.addAll(args);
-            }
-            final player = await joinMemberVc(member, event.guild!, channel);
-            await player.playIdentifier(sources.removeAt(0));
-            player.onTrackEnd.listen((_) => sources.isNotEmpty
-                ? player.playIdentifier(sources.removeAt(0))
-                : player.disconnect());
+            final sources = [
+              ...msg.attachments.map((a) => a.url.toString()),
+              ...args
+                  .join(' ')
+                  .split(RegExp(r'\s+'))
+                  .where((s) => s.isNotEmpty)
+                  .map((s) => s.startsWith('<') && s.endsWith('>')
+                      ? s.substring(1, s.length - 1)
+                      : s),
+            ];
+            if (sources.isEmpty) throw 'Provide a URL or attach an audio file';
+            await playInMemberVc(member, event.guild!, sources);
           }
         ),
       if (lavalink != null)
@@ -183,10 +187,8 @@ void main(List<String> argv) async {
           '<text> - speaks text in your voice channel (requires priv role)',
           () async {
             if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
-            final player = await joinMemberVc(member, event.guild!, channel);
-            await player.playIdentifier('speak:${args.join(' ')}');
-            player.onTrackEnd.listen((_) => Future.delayed(
-                Duration(milliseconds: 100), () => player.disconnect()));
+            await playInMemberVc(
+                member, event.guild!, ['speak:${args.join(' ')}']);
           }
         ),
     };
@@ -224,17 +226,47 @@ void main(List<String> argv) async {
   }
 }
 
-Future<LavalinkPlayer> joinMemberVc(PartialMember member, PartialGuild guild,
-    [TextChannel? channel]) async {
-  final voice = guild.voiceStates[member.id]!;
-  final vc = await voice.channel!.fetch() as VoiceChannel;
+Future<void> playInMemberVc(
+    PartialMember member, PartialGuild guild, List<String> sources) async {
+  final voiceChannel = guild.voiceStates[member.id]?.channel;
+  if (voiceChannel == null) throw 'Join a voice channel first';
+  final vc = await voiceChannel.fetch() as VoiceChannel;
+  log.info(
+      '[voice] connecting to channel ${vc.id} for ${sources.length} track(s)');
   final player = await vc.connectLavalink();
-  player.onTrackException.listen((e) {
-    log.warning('!play error', e);
-    channel?.sendMessage(MessageBuilder(content: e.toString()));
-    player.disconnect();
+  log.fine('[voice] connected to channel ${vc.id}');
+  var ended = Completer<void>();
+  final endSubscription = player.onTrackEnd.listen((event) {
+    log.fine('[voice] track ended: ${event.reason}');
+    if (!ended.isCompleted) ended.complete();
   });
-  return player;
+  final exceptionSubscription = player.onTrackException.listen((e) {
+    if (!ended.isCompleted) {
+      ended.completeError(
+          e.exception.message ?? e.exception.cause,
+          e.exception.causeStackTrace.isEmpty
+              ? StackTrace.current
+              : StackTrace.fromString(e.exception.causeStackTrace));
+    }
+  });
+  try {
+    for (var i = 0; i < sources.length; i++) {
+      ended = Completer<void>();
+      log.fine('[voice] starting track ${i + 1}/${sources.length}');
+      await Future.wait([player.playIdentifier(sources[i]), ended.future],
+          eagerError: true);
+    }
+    await Future.delayed(Duration(milliseconds: 100));
+  } finally {
+    await endSubscription.cancel();
+    await exceptionSubscription.cancel();
+    try {
+      await player.disconnect();
+      log.fine('[voice] disconnected from channel ${vc.id}');
+    } catch (e, st) {
+      log.warning('[voice] disconnect failed', e, st);
+    }
+  }
 }
 
 Duration ytPollInterval() {
