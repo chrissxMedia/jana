@@ -13,6 +13,7 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:youtube_poll/youtube_poll.dart';
 
 final log = Logger('jana');
+final playingGuilds = <Snowflake>{};
 
 const internal = Snowflake(826983242493591592);
 const news = Snowflake(551908144641605642);
@@ -173,10 +174,10 @@ void main(List<String> argv) async {
               ...args
                   .join(' ')
                   .split(RegExp(r'\s+'))
-                  .where((s) => s.isNotEmpty)
                   .map((s) => s.startsWith('<') && s.endsWith('>')
                       ? s.substring(1, s.length - 1)
-                      : s),
+                      : s)
+                  .where((s) => s.isNotEmpty),
             ];
             if (sources.isEmpty) throw 'Provide a URL or attach an audio file';
             await playInMemberVc(member, event.guild!, sources);
@@ -187,8 +188,9 @@ void main(List<String> argv) async {
           '<text> - speaks text in your voice channel (requires priv role)',
           () async {
             if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
-            await playInMemberVc(
-                member, event.guild!, ['speak:${args.join(' ')}']);
+            final text = args.join(' ').trim();
+            if (text.isEmpty) throw 'Provide text to speak';
+            await playInMemberVc(member, event.guild!, ['speak:$text']);
           }
         ),
     };
@@ -230,42 +232,55 @@ Future<void> playInMemberVc(
     PartialMember member, PartialGuild guild, List<String> sources) async {
   final voiceChannel = guild.voiceStates[member.id]?.channel;
   if (voiceChannel == null) throw 'Join a voice channel first';
-  final vc = await voiceChannel.fetch() as VoiceChannel;
-  log.info(
-      '[voice] connecting to channel ${vc.id} for ${sources.length} track(s)');
-  final player = await vc.connectLavalink();
-  log.fine('[voice] connected to channel ${vc.id}');
-  var ended = Completer<void>();
-  final endSubscription = player.onTrackEnd.listen((event) {
-    log.fine('[voice] track ended: ${event.reason}');
-    if (!ended.isCompleted) ended.complete();
-  });
-  final exceptionSubscription = player.onTrackException.listen((e) {
-    if (!ended.isCompleted) {
-      ended.completeError(
-          e.exception.message ?? e.exception.cause,
-          e.exception.causeStackTrace.isEmpty
-              ? StackTrace.current
-              : StackTrace.fromString(e.exception.causeStackTrace));
-    }
-  });
+  if (!playingGuilds.add(guild.id)) {
+    throw 'Already playing audio in this server';
+  }
   try {
-    for (var i = 0; i < sources.length; i++) {
-      ended = Completer<void>();
-      log.fine('[voice] starting track ${i + 1}/${sources.length}');
-      await Future.wait([player.playIdentifier(sources[i]), ended.future],
-          eagerError: true);
-    }
-    await Future.delayed(Duration(milliseconds: 100));
-  } finally {
-    await endSubscription.cancel();
-    await exceptionSubscription.cancel();
+    final vc = await voiceChannel.fetch() as VoiceChannel;
+    log.info(
+        '[voice] connecting to channel ${vc.id} for ${sources.length} track(s)');
+    final player = await vc.connectLavalink();
+    log.fine('[voice] connected to channel ${vc.id}');
+    var ended = Completer<void>();
+    final endSubscription = player.onTrackEnd.listen((event) {
+      log.fine('[voice] track ended: ${event.reason}');
+      if (ended.isCompleted) return;
+      if (event.reason == 'loadFailed') {
+        ended.completeError(
+            StateError('Track failed to load'), StackTrace.current);
+      } else {
+        ended.complete();
+      }
+    });
+    final exceptionSubscription = player.onTrackException.listen((e) {
+      if (!ended.isCompleted) {
+        ended.completeError(
+            e.exception.message ?? e.exception.cause,
+            e.exception.causeStackTrace.isEmpty
+                ? StackTrace.current
+                : StackTrace.fromString(e.exception.causeStackTrace));
+      }
+    });
     try {
-      await player.disconnect();
-      log.fine('[voice] disconnected from channel ${vc.id}');
-    } catch (e, st) {
-      log.warning('[voice] disconnect failed', e, st);
+      for (var i = 0; i < sources.length; i++) {
+        ended = Completer<void>();
+        log.fine('[voice] starting track ${i + 1}/${sources.length}');
+        await Future.wait([player.playIdentifier(sources[i]), ended.future],
+            eagerError: true);
+      }
+      await Future.delayed(Duration(milliseconds: 100));
+    } finally {
+      await endSubscription.cancel();
+      await exceptionSubscription.cancel();
+      try {
+        await player.disconnect();
+        log.fine('[voice] disconnected from channel ${vc.id}');
+      } catch (e, st) {
+        log.warning('[voice] disconnect failed', e, st);
+      }
     }
+  } finally {
+    playingGuilds.remove(guild.id);
   }
 }
 
