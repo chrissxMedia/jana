@@ -3,7 +3,7 @@ FROM dart:stable AS build
 WORKDIR /app
 COPY pubspec.yaml .
 RUN dart pub get
-COPY bin ./bin
+COPY . .
 RUN dart compile exe bin/jana.dart -o bin/app
 
 FROM scratch

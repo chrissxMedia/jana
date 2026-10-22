@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:jana/lavalink.dart';
 import 'package:mutex/mutex.dart';
 import 'package:nyxx/nyxx.dart';
 import 'package:nyxx_extensions/nyxx_extensions.dart';
@@ -90,7 +91,9 @@ void main(List<String> argv) async {
   Logger.root.onRecord.listen((rec) => logMutex.protect(() async {
         if (rec.level <= Level.INFO) return;
         if (rec.loggerName.contains("Nyxx.") &&
-            rec.message.contains("rate limiting")) return;
+            rec.message.contains("rate limiting")) {
+          return;
+        }
         final ping = rec.level >= Level.WARNING ? ' <@&$admins>' : '';
         var msg = '[${rec.level.name}] [${rec.loggerName}] ${rec.message}$ping';
         if (rec.error != null) {
@@ -128,7 +131,7 @@ void main(List<String> argv) async {
 
     final member = await event.member!.get();
     final channel = await msg.channel.get() as TextChannel;
-    final args = msg.content.split(' ');
+    final args = msg.content.split(RegExp(r'\s+'));
     final cmd = args.removeAt(0).toLowerCase();
 
     final commands = <String, (String, FutureOr<dynamic> Function())>{
@@ -163,19 +166,17 @@ void main(List<String> argv) async {
       ),
       if (lavalink != null)
         '!play': (
-          '[url...] - plays audio in your voice channel (requires priv role)',
+          '[url...] - plays URLs or attached audio in your voice channel (requires priv role)',
           () async {
             if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
-            final sources = ['https://gock.dev/email_empfangen.flac'];
-            if (member.roleIds.contains(admins)) {
-              sources.addAll(msg.attachments.map((a) => a.url.toString()));
-              sources.addAll(args);
-            }
-            final player = await joinMemberVc(member, event.guild!, channel);
-            await player.playIdentifier(sources.removeAt(0));
-            player.onTrackEnd.listen((_) => sources.isNotEmpty
-                ? player.playIdentifier(sources.removeAt(0))
-                : player.disconnect());
+            final sources = [
+              ...msg.attachments.map((a) => a.url.toString()),
+              ...args
+                  .map((s) => s.replaceAll(RegExp(r'^<|>$'), ''))
+                  .where((s) => s.isNotEmpty),
+            ];
+            if (sources.isEmpty) throw 'Provide a URL or attach an audio file';
+            await playInMemberVc(member, event.guild!, sources);
           }
         ),
       if (lavalink != null)
@@ -183,10 +184,9 @@ void main(List<String> argv) async {
           '<text> - speaks text in your voice channel (requires priv role)',
           () async {
             if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
-            final player = await joinMemberVc(member, event.guild!, channel);
-            await player.playIdentifier('speak:${args.join(' ')}');
-            player.onTrackEnd.listen((_) => Future.delayed(
-                Duration(milliseconds: 100), () => player.disconnect()));
+            final text = args.join(' ').trim();
+            if (text.isEmpty) throw 'Provide text to speak';
+            await playInMemberVc(member, event.guild!, ['speak:$text']);
           }
         ),
     };
@@ -222,19 +222,6 @@ void main(List<String> argv) async {
     void er(Object e, StackTrace st) => log.severe('[yt] polling error', e, st);
     yt.pollBatched(id, ytPollInterval).listen(handle, onError: er);
   }
-}
-
-Future<LavalinkPlayer> joinMemberVc(PartialMember member, PartialGuild guild,
-    [TextChannel? channel]) async {
-  final voice = guild.voiceStates[member.id]!;
-  final vc = await voice.channel!.fetch() as VoiceChannel;
-  final player = await vc.connectLavalink();
-  player.onTrackException.listen((e) {
-    log.warning('!play error', e);
-    channel?.sendMessage(MessageBuilder(content: e.toString()));
-    player.disconnect();
-  });
-  return player;
 }
 
 Duration ytPollInterval() {

@@ -1,0 +1,9 @@
+.git
+.github
+.dart_tool
+.packages
+build
+pubspec.lock
+bin/app
+.env
+.env.*
