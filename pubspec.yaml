@@ -23,3 +23,10 @@ dependencies:
 
 dev_dependencies:
   lints: ^6.0.0
+
+dependency_overrides:
+  # Remove once the fix from nyxx-discord/nyxx#789 ships on pub.dev.
+  nyxx:
+    git:
+      url: https://github.com/vinicioshenriques/nyxx.git
+      ref: ad3f6febbfc634e5172c252304d35b4a8be5f1c7
