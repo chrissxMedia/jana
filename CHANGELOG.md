@@ -1,3 +1,10 @@
+## 3.0.0
+
+- Remove `!ping` and `!meow`
+- Remove YouTube polling, announcements, `!vid`, and both YouTube dependencies
+- Keep Lavalink audio playback and text-to-speech, `!help`, `!stop`, Discord
+  logging, and Prometheus metrics
+
 ## 2.2.0
 
 - Skip videos already posted in target channel (#1)
@@ -42,7 +49,8 @@
 
 ## 1.5.0
 
-- Added support for `JANA_DISCORD_TOKEN` environment variable instead of using args
+- Added support for `JANA_DISCORD_TOKEN` environment variable instead of using
+  args
 - A lot of logging for the YT video posting
 - YT videos are now processed synchronously
 - The used channels are now just kept as globals
@@ -54,14 +62,15 @@
 - Logging: send `error` and `stackTrace` if given
 - Logging: ping the admin if the log level is >= warning
 - Added/Adjusted `!vids` and `!vid` commands
-- The first `checkYoutube` invocation is now also delayed
-(to not cause any DOS issues, as unlikely as they already were)
-- Catch errors in `checkYoutube` and the command processing and log them
-(and tell the user in case of the commands)
+- The first `checkYoutube` invocation is now also delayed (to not cause any DOS
+  issues, as unlikely as they already were)
+- Catch errors in `checkYoutube` and the command processing and log them (and
+  tell the user in case of the commands)
 - Fixed YouTube descriptions being empty (the channel page doesn't have them)
-- `checkYoutube` now makes sure videos weren't published before IED'23
-(which is a stopgap measure for stopping it from telling people about old videos
-in certain edge cases, [that have happened btw](https://discord.com/channels/551138620665495554/551908144641605642/1167108161531027526))
+- `checkYoutube` now makes sure videos weren't published before IED'23 (which is
+  a stopgap measure for stopping it from telling people about old videos in
+  certain edge cases,
+  [that have happened btw](https://discord.com/channels/551138620665495554/551908144641605642/1167108161531027526))
 
 ## 1.3.0
 

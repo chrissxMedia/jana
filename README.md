@@ -1,16 +1,22 @@
 # jana
 
-Discord bot for [the official chrissx Media Server](https://chrissx.de/discord).
+Discord audio bot for
+[the official chrissx Media Server](https://chrissx.de/discord), with URL and
+attachment playback and text-to-speech through Lavalink.
+
+Version 3.0.0 removes `!ping`, `!meow`, `!vid`, and YouTube polling and
+announcements. The RSS webhook handles announcements instead. YouTube URL
+playback still depends on Lavalink's configured sources.
 
 ```sh
 # Without Lavalink
 docker run -d --restart=unless-stopped --pull=always -e JANA_DISCORD_TOKEN=XXX chrissx/jana:latest
 
-# With Lavalink running on Network lavalink on localhost:2333
-docker run -d --restart=unless-stopped --pull=always --network lavalink -e JANA_DISCORD_TOKEN=XXX -e JANA_LAVALINK_BASE=http://localhost:2333 -e JANA_LAVALINK_PASSWORD=XXX chrissx/jana:latest
+# With Lavalink running on network lavalink as container lavalink
+docker run -d --restart=unless-stopped --pull=always --network lavalink -e JANA_DISCORD_TOKEN=XXX -e JANA_LAVALINK_BASE=http://lavalink:2333 -e JANA_LAVALINK_PASSWORD=XXX chrissx/jana:latest
 
 # Example Lavalink setup
-docker run -d --restart=unless-stopped --pull=always --network lavalink -e SERVER_PORT=2333 -e LAVALINK_SERVER_PASSWORD=XXX -v$PWD/application.yml:/opt/Lavalink/application.yml ghcr.io/lavalink-devs/lavalink:4
+docker run -d --name lavalink --restart=unless-stopped --pull=always --network lavalink -e SERVER_PORT=2333 -e LAVALINK_SERVER_PASSWORD=XXX -v$PWD/application.yml:/opt/Lavalink/application.yml ghcr.io/lavalink-devs/lavalink:4
 ```
 
 ## Commands
@@ -19,9 +25,6 @@ Run `!help` in Discord to list all commands. Output matches this table.
 
 | Command          | Description                                        | Who      | Lavalink |
 | ---------------- | -------------------------------------------------- | -------- | -------- |
-| `!ping`          | replies with Pong!                                 | everyone | no       |
-| `!vid <id...>`   | dumps video info as JSON                           | everyone | no       |
-| `!meow`          | says Meow!                                         | priv     | no       |
 | `!stop`          | shuts down the bot                                 | admins   | no       |
 | `!play [url...]` | plays URLs or attached audio in your voice channel | priv     | yes      |
 | `!speak <text>`  | speaks text in your voice channel                  | priv     | yes      |

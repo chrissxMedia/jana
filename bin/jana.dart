@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:jana/lavalink.dart';
@@ -10,51 +9,12 @@ import 'package:nyxx_lavalink/nyxx_lavalink.dart';
 import 'package:prometheus_client/runtime_metrics.dart' as runtime_metrics;
 import 'package:prometheus_client_shelf/shelf_handler.dart';
 import 'package:shelf/shelf_io.dart';
-import 'package:youtube_explode_dart/youtube_explode_dart.dart';
-import 'package:youtube_poll/youtube_poll.dart';
 
 final log = Logger('jana');
 
 const internal = Snowflake(826983242493591592);
-const news = Snowflake(551908144641605642);
-const twinkspotting = Snowflake(1292515671439315027);
 const priv = [Snowflake(1310347280406151168), Snowflake(1285544156185366559)];
 const admins = Snowflake(569251424370819088);
-final yt = YoutubePoll();
-final startupTime = DateTime.now().subtract(Duration(days: 1));
-const ytChannels = <(String, bool, Snowflake)>[
-  ("UCZs3FO5nPvK9VveqJLIvv_w", true, news), // main
-  ("UCF7z3rssaZjx7SxJ0IqSNvw", false, news), // xxlp
-  ("UC20oDKphj67NRDwKKy3JC_A", true, news), // pixeleng
-  ("UCMawD8L365TRdcqhQiTDLKA", false, twinkspotting), // twinkspotting
-];
-
-Map videoToJson(Video v) => {
-      'author': v.author,
-      'channelId': v.channelId.value,
-      'description': v.description,
-      'duration': v.duration?.inSeconds,
-      'hasWatchPage': v.hasWatchPage,
-      'id': v.id.value,
-      'isLive': v.isLive,
-      'publishDate': v.publishDate?.toIso8601String(),
-      'title': v.title,
-      'uploadDate': v.uploadDate?.toIso8601String(),
-      'uploadDateRaw': v.uploadDateRaw,
-      'url': v.url,
-    }..removeWhere((key, value) => value == null);
-
-extension SendJson on TextChannel {
-  Future sendJson(String json, [String fileName = "message.json"]) {
-    if (json.length < 1984) {
-      return sendMessage(MessageBuilder(content: '```json\n$json\n```'));
-    } else {
-      return sendMessage(MessageBuilder(attachments: [
-        AttachmentBuilder(fileName: fileName, data: utf8.encode(json))
-      ]));
-    }
-  }
-}
 
 void main(List<String> argv) async {
   final env = Platform.environment;
@@ -116,7 +76,7 @@ void main(List<String> argv) async {
         }
       }));
 
-  bot.onReady.listen((_) => log.info('jana v2 is ready'));
+  bot.onReady.listen((_) => log.info('jana v3 is ready'));
 
   bot.onMessageCreate.listen((event) async {
     final msg = event.message;
@@ -135,27 +95,6 @@ void main(List<String> argv) async {
     final cmd = args.removeAt(0).toLowerCase();
 
     final commands = <String, (String, FutureOr<dynamic> Function())>{
-      '!ping': (
-        'replies with Pong! (everyone)',
-        () => channel.sendMessage(MessageBuilder(content: 'Pong!'))
-      ),
-      '!vid': (
-        '<id...> - dumps video info as JSON (everyone)',
-        () async {
-          for (final id in args) {
-            await yt.yt.videos.get(id).then(
-                (v) => channel.sendJson(json.encode(videoToJson(v)), '$id.json'));
-          }
-        }
-      ),
-      '!meow': (
-        'says Meow! (requires priv role)',
-        () {
-          if (!member.roleIds.any(priv.contains)) throw 'Not authorized';
-          log.info(Iterable.generate(4 * 420).map((_) => 'meow').join(' '));
-          channel.sendMessage(MessageBuilder(content: 'Meow!'));
-        }
-      ),
       '!stop': (
         'shuts down the bot (requires admins role)',
         () async {
@@ -212,81 +151,5 @@ void main(List<String> argv) async {
 
   if (lavalink == null) {
     log.warning('No Lavalink configured');
-  }
-
-  final ytMutex = Mutex();
-  for (final (id, not, dChan) in ytChannels) {
-    await yt.ignoreOld(id);
-    void handle(List<Video> vids) =>
-        ytMutex.protect(() => handleNewVideos(id, bot, not, dChan, vids));
-    void er(Object e, StackTrace st) => log.severe('[yt] polling error', e, st);
-    yt.pollBatched(id, ytPollInterval).listen(handle, onError: er);
-  }
-}
-
-Duration ytPollInterval() {
-  final target = DateTime(2020, 1, 1, 1, 0, 45);
-  final now = DateTime.now().copyWith(year: 2020, month: 1, day: 1, hour: 0);
-  final diff = target.difference(now);
-  if (diff < Duration(minutes: 1)) return Duration(minutes: 1);
-  if (diff > Duration(minutes: 30)) return Duration(minutes: 30);
-  return diff;
-}
-
-Future<void> handleNewVideos(String id, NyxxGateway bot, bool notify,
-    Snowflake dcChannel, List<Video> vids) async {
-  log.info('[yt] new videos: $vids'); // TODO:
-  log.fine('[yt] from $id for $dcChannel');
-  if (vids.isEmpty) return;
-  try {
-    final blocks = <String>[];
-    final reactions = <String>[];
-    final channel = await bot.channels.get(dcChannel) as TextChannel;
-    late final List<Message> history;
-    try {
-      history = await channel.messages.fetchMany(limit: 50);
-    } catch (e, st) {
-      log.warning('[yt] history fetch failed, posting anyway', e, st);
-      history = [];
-    }
-    for (final vid in vids) {
-      log.info('[yt] processing video', vid.url);
-      (await bot.channels.get(internal) as TextChannel)
-          .sendJson(json.encode(videoToJson(vid)), 'vid.json');
-
-      if ((vid.publishDate ?? vid.uploadDate ?? DateTime.now())
-          .isBefore(startupTime)) {
-        log.warning('[yt] is an old video');
-        continue;
-      }
-
-      if (history.any((m) => m.content.contains(vid.id.value))) {
-        log.info('[yt] already posted, skipping ${vid.id.value}');
-        continue;
-      }
-
-      Iterable<String> lines(String separator) => vid.description
-          .replaceAll('\r', '\n')
-          .split('\n')
-          .where((s) => s.startsWith(separator))
-          .map((s) => s.replaceFirst(separator, ''));
-      final videoMessage = lines('janamsg: ').join('\n');
-      reactions.addAll(lines('janareact: '));
-      blocks.add('$videoMessage\nhttps://youtu.be/${vid.id.value}');
-      log.info('[yt] added ${vid.id.value}');
-    }
-    if (blocks.isNotEmpty) {
-      log.info('[yt] building and sending message');
-      final tag = notify ? '@everyone ' : '';
-      final msg = await channel
-          .sendMessage(MessageBuilder(content: '$tag${blocks.join('\n')}'));
-      await Future.wait(reactions
-          .map(bot.getTextEmoji)
-          .map(ReactionBuilder.fromEmoji)
-          .map(msg.react));
-      log.info('[yt] all done');
-    }
-  } catch (e, st) {
-    log.severe('[yt] update error', e, st);
   }
 }
